@@ -2378,6 +2378,99 @@ html[data-motion="off"] .tilt{transform:none!important}
 body.is-syncing::after{content:"";position:fixed;top:0;inset-inline:0;height:3px;z-index:9999;background:linear-gradient(90deg,transparent,#3B7BEA,#2BB673,transparent);background-size:200% 100%;animation:syncbar 1.1s linear infinite}
 @keyframes syncbar{from{background-position:200% 0}to{background-position:-200% 0}}
 
+/* ===== dashboard motion: things build themselves in front of you ===== */
+.dl{gap:4px}
+.dl b{font-weight:800;font-variant-numeric:tabular-nums}
+.dl-ar{width:13px;height:13px;flex:0 0 auto;overflow:visible}
+.dl-ar path{fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1}
+.dl-ar .sh{animation:arDraw .45s cubic-bezier(.3,.7,.2,1) .25s forwards}
+.dl-ar .hd{animation:arDraw .35s cubic-bezier(.3,.7,.2,1) .62s forwards}
+.dl-ar.flat path{animation:arDraw .4s ease .25s forwards}
+.dl-ar.up{animation:arBobUp 2.6s ease-in-out 1.2s infinite}
+.dl-ar.dn{animation:arBobDn 2.6s ease-in-out 1.2s infinite}
+@keyframes arDraw{to{stroke-dashoffset:0}}
+@keyframes arBobUp{0%,70%,100%{transform:none}80%{transform:translateY(-2px)}}
+@keyframes arBobDn{0%,70%,100%{transform:none}80%{transform:translateY(2px)}}
+/* cards rise in with a short stagger as they come into view */
+.will-see{opacity:0;transform:translateY(18px) scale(.985)}
+.will-see.seen{animation:cardIn .7s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--k,0) * 60ms)}
+@keyframes cardIn{from{opacity:0;transform:translateY(18px) scale(.985);filter:blur(3px)}to{opacity:1;transform:none;filter:none}}
+/* charts wait until their card is on screen, then draw */
+.will-see:not(.seen) .ch-anim *{animation-play-state:paused!important}
+.dcard.seen .ch-anim .ch-bar{animation-delay:calc(.25s + var(--i,0) * 45ms)}
+.dcard.seen .ch-anim .ch-draw{animation-duration:1.4s}
+/* hero card: slow light sweep */
+.dkpi.hero::before{content:"";position:absolute;inset:-40% -10%;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.13) 50%,transparent 60%);transform:translateX(-60%);animation:heroSweep 5.5s ease-in-out 1.2s infinite;pointer-events:none}
+@keyframes heroSweep{0%{transform:translateX(-60%)}45%,100%{transform:translateX(60%)}}
+/* sparklines: a dot runs to the last point */
+.spk .ch-draw{animation-duration:1.3s!important;stroke-dasharray:3 3;stroke-dashoffset:3}
+html[data-motion="off"] .will-see,html[data-motion="off"] .will-see.seen{opacity:1!important;transform:none!important;animation:none!important;filter:none!important}
+html[data-motion="off"] .dl-ar path{stroke-dashoffset:0;animation:none}
+html[data-motion="off"] .dkpi.hero::before,html[data-motion="off"] .dl-ar{animation:none}
+@media (prefers-reduced-motion:reduce){.will-see{opacity:1;transform:none}.will-see.seen{animation:none}.dl-ar path{stroke-dashoffset:0;animation:none}.dkpi.hero::before{display:none}}
+
+/* ===== mobile live bar: compact strip, tap to expand ===== */
+.live .lv-tg{display:none}
+@media (max-width:700px){
+  .live{grid-template-columns:1fr 1fr;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));position:sticky}
+  .live .lv-tg{display:block;position:absolute;top:-13px;left:50%;transform:translateX(-50%);width:44px;height:26px;border-radius:14px;border:0;background:#14306E;box-shadow:0 -4px 12px -6px rgba(0,0,0,.4);cursor:pointer}
+  .live .lv-tg:before{content:"";position:absolute;inset:0;margin:auto;width:9px;height:9px;border:solid #fff;border-width:2px 0 0 2px;transform:translateY(2px) rotate(45deg);transition:transform .2s}
+  .live.open .lv-tg:before{transform:translateY(-2px) rotate(225deg)}
+  .live .lg-grp{padding:7px 10px;gap:4px;min-width:0}
+  .live .lg-t{font-size:11px;gap:6px;justify-content:space-between}
+  .live .lg-t em{font-size:11px;padding:0 6px}
+  .live .lg-b{gap:6px 10px}
+  .live .lg-r:not(.tot){display:none}
+  .live.open .lg-r:not(.tot){display:flex}
+  .live .lg-r.tot{width:100%;flex-direction:row;justify-content:space-between;align-items:baseline;padding:3px 8px}
+  .live .lg-r.tot span{font-size:10px}
+  .live .lg-r.tot b{font-size:15px}
+  .live.open .lg-r.tot{order:9}
+  .live .lg-r b{font-size:13px}
+  .live .btn{height:42px}
+  .live [data-dirty]{grid-column:1/-1;text-align:center}
+  .live [data-dirty]:empty{display:none}
+}
+
+/* optional per-row fields: inline on desktop, folded on mobile */
+.dg-more{display:none}
+.dg-opt{display:contents}
+@media (max-width:700px){
+  .drow .ins{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end}
+  .dg-more{grid-column:1/-1;justify-content:center;display:inline-flex;align-items:center;gap:4px;height:36px;padding:0 12px;border-radius:10px;border:1px dashed var(--line);background:transparent;color:var(--b-600,#1E4FB8);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+  .dg-more:after{content:"";width:6px;height:6px;border:solid currentColor;border-width:0 2px 2px 0;transform:rotate(45deg);margin:-3px 2px 0;transition:transform .2s}
+  .dg-more.on:after{transform:rotate(225deg);margin-top:3px}
+  .dg-opt{display:none;grid-column:1/-1;grid-template-columns:1fr 1fr;gap:8px}
+  .dg-opt.open{display:grid}
+  .dg-opt .fld{min-width:0}
+}
+
+/* ===== login: quiet aviation motion (CSS-only, GPU-friendly) ===== */
+.lg-hero .lg-sky{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:.9}
+.lg-sky .lg-grid{stroke:rgba(255,255,255,.06);stroke-width:1;fill:none}
+.lg-sky .lg-route{fill:none;stroke:rgba(255,255,255,.16);stroke-width:1.4;stroke-dasharray:3 9;stroke-linecap:round;animation:lgDash 22s linear infinite}
+.lg-sky .lg-route.r2{stroke:rgba(127,227,180,.14);animation-duration:30s}
+.lg-sky .lg-trail{fill:none;stroke-width:2.2;stroke-linecap:round;stroke-dasharray:180 1400;stroke-dashoffset:180;animation:lgTrail 9s cubic-bezier(.45,.05,.35,1) infinite}
+.lg-sky .lg-plane{offset-path:path("M-40 520 C 180 470, 300 300, 520 250 S 800 170, 860 120");offset-rotate:auto;animation:lgFly 9s cubic-bezier(.45,.05,.35,1) infinite;filter:drop-shadow(0 0 6px rgba(127,227,180,.9))}
+.lg-sky .lg-ping{fill:#7FE3B4;transform-box:fill-box;transform-origin:center;animation:lgPing 3.2s ease-out infinite}
+.lg-sky .lg-ping.p2{animation-delay:1.6s;fill:#9CC3FF}
+@keyframes lgDash{to{stroke-dashoffset:-240}}
+@keyframes lgTrail{0%{stroke-dashoffset:180}100%{stroke-dashoffset:-1250}}
+@keyframes lgFly{0%{offset-distance:0%;opacity:0}8%{opacity:1}92%{opacity:1}100%{offset-distance:100%;opacity:0}}
+@keyframes lgPing{0%{transform:scale(1);opacity:.9}70%{transform:scale(4.5);opacity:0}100%{opacity:0}}
+.lg-hero .lg-shape{animation:lgFloat 14s ease-in-out infinite alternate}
+@keyframes lgFloat{to{transform:rotate(-6deg) translateY(-18px)}}
+.lg-hero .lg-mid>*,.lg-hero .lg-foot,.lg-form .lg-box2{animation:lgUp .7s cubic-bezier(.2,.8,.2,1) both}
+.lg-hero .lg-mid>*:nth-child(2){animation-delay:.08s}.lg-hero .lg-mid>*:nth-child(3){animation-delay:.16s}.lg-hero .lg-mid>*:nth-child(4){animation-delay:.24s}
+.lg-hero .lg-foot{animation-delay:.32s}.lg-form .lg-box2{animation-delay:.1s}
+@keyframes lgUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.lg-btn{position:relative;overflow:hidden}
+.lg-btn:after{content:"";position:absolute;top:0;bottom:0;width:40%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.35),transparent);animation:lgShine 4.5s ease-in-out 1.2s infinite}
+@keyframes lgShine{0%,70%{left:-60%}100%{left:130%}}
+@media (max-width:700px){.lg-sky .lg-route.r2,.lg-sky .lg-grid{display:none}}
+@media (prefers-reduced-motion:reduce){.lg-sky *,.lg-hero .lg-shape,.lg-hero .lg-mid>*,.lg-hero .lg-foot,.lg-form .lg-box2,.lg-btn:after{animation:none!important}.lg-sky .lg-plane{display:none}}
+@media print{.will-see{opacity:1!important;transform:none!important;animation:none!important}}
+
 /* ============ Report pages (A4) — same look as the Excel statements ============ */
 .rp{width:210mm;min-height:297mm;background:#fff;margin:0 auto 16px;padding:10mm 9mm;box-shadow:0 2px 10px rgba(0,0,0,.08);
   font-family:"SAF Sans",Calibri,"Segoe UI",Carlito,Arial,sans-serif;color:#2F3B45;font-size:8.2pt;direction:ltr;text-align:left;line-height:1.35;position:relative}
@@ -6514,7 +6607,10 @@ var UX = (function () {
   function deltaPill(ch, goodDown) {
     if (ch == null || !isFinite(ch)) return '<span class="dl n">—</span>';
     var up = ch > 0, good = goodDown ? !up : up, cls = Math.abs(ch) < 0.005 ? 'n' : good ? 'g' : 'b';
-    return '<span class="dl ' + cls + '">' + (up ? '▲' : ch < 0 ? '▼' : '■') + ' ' + Math.abs(ch * 100).toFixed(1) + '%</span>';
+    // the arrow draws itself (shaft, then head) and the figure counts up beside it
+    var arr = ch === 0 || cls === 'n' && Math.abs(ch) < 0.005 ? '<svg class="dl-ar flat" viewBox="0 0 16 16"><path d="M3 8h10" pathLength="1"/></svg>'
+      : '<svg class="dl-ar ' + (up ? 'up' : 'dn') + '" viewBox="0 0 16 16"><path class="sh" d="' + (up ? 'M8 14V3' : 'M8 2v11') + '" pathLength="1"/><path class="hd" d="' + (up ? 'M3.5 7.5 8 3l4.5 4.5' : 'M3.5 8.5 8 13l4.5-4.5') + '" pathLength="1"/></svg>';
+    return '<span class="dl ' + cls + '">' + arr + '<b data-countp="' + Math.abs(ch * 100).toFixed(1) + '">' + Math.abs(ch * 100).toFixed(1) + '</b>%</span>';
   }
 
   /* ---------------- count-up for KPI values ---------------- */
@@ -6527,6 +6623,18 @@ var UX = (function () {
       function step(ts) { if (!t0) t0 = ts; var p = Math.min(1, (ts - t0) / dur), e = 1 - Math.pow(1 - p, 3); el.textContent = fmt(to * e); if (p < 1) requestAnimationFrame(step); else el.textContent = fmt(to); }
       requestAnimationFrame(step);
     });
+    // percentages beside the arrows count up after the arrow has drawn
+    $$('[data-countp]', root).forEach(function (el) {
+      var to = Number(el.getAttribute('data-countp')), t0 = null, dur = 900;
+      if (!isFinite(to) || !to) return;
+      function step(ts) { if (!t0) t0 = ts + 350; var p = Math.max(0, Math.min(1, (ts - t0) / dur)), e = 1 - Math.pow(1 - p, 3); el.textContent = (to * e).toFixed(1); if (p < 1) requestAnimationFrame(step); }
+      requestAnimationFrame(step);
+    });
+    // anything below the fold plays its entrance when it scrolls into view
+    if ('IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('seen'); io.unobserve(e.target); } }); }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
+      $$('.dcard,.dsec,.dkpi', root).forEach(function (el, i) { if (el.classList.contains('seen')) return; el.style.setProperty('--k', i % 12); el.classList.add('will-see'); io.observe(el); });
+    }
   }
 
   /* ---------------- skeleton screens ---------------- */
@@ -6855,13 +6963,21 @@ var Entry = (function () {
   function taxItems(label, tax, qty, qtyLbl) {
     var row = function (l, v, cls) { return '<div class="lg-r' + (cls ? ' ' + cls : '') + '"><span>' + l + '</span><b>' + v + '</b></div>'; };
     var vat = tax.adds || 0, wht = tax.deducts || 0;
-    return '<div class="lg-grp"><div class="lg-t">' + esc(label) + (qty != null ? '<em>' + C.fmtInt(qty) + ' ' + esc(qtyLbl || '') + '</em>' : '') + '</div><div class="lg-b">' +
-      row(L('قبل الضريبة', 'Before tax'), M(tax.net, 2)) +
+    return '<div class="lg-grp"><div class="lg-t">' + esc(label) + (qty != null ? '<em>' + (typeof qty === 'number' ? C.fmtInt(qty) : esc(qty)) + ' ' + esc(qtyLbl || '') + '</em>' : '') + '</div><div class="lg-b">' +
+      (tax.hasTax && (vat || wht) ? row(L('قبل الضريبة', 'Before tax'), M(tax.net, 2)) : '') +
       (tax.hasTax && vat ? row(L('الضريبة', 'VAT'), '+ ' + M(vat, 2)) : '') +
       (tax.hasTax && wht ? row(L('خصم المنبع', 'WHT'), '− ' + M(wht, 2)) : '') +
-      row(tax.hasTax && vat ? L('شامل الضريبة', 'Incl. VAT') : L('الإجمالي', 'Total'), M(tax.hasTax ? tax.gross : tax.net, 2), 'tot') +
+      row(tax.hasTax && vat ? L('شامل الضريبة', 'Incl. VAT') : tax.hasTax && wht ? L('صافي للمورد', 'Net payable') : L('الإجمالي', 'Total'), M(tax.hasTax ? tax.gross : tax.net, 2), 'tot') +
       '</div></div>';
   }
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('[data-lvtg]'); if (!t) return;
+    var lv = t.closest('.live'); if (lv) lv.classList.toggle('open');
+  });
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('[data-dgmore]'); if (!t) return;
+    var o = t.nextElementSibling; if (o) { o.classList.toggle('open'); t.classList.toggle('on', o.classList.contains('open')); }
+  });
   function liveItem(l, v) { return '<div class="it"><div class="l">' + esc(l) + '</div><div class="v">' + v + '</div></div>'; }
 
   /* ============================================================
@@ -6899,14 +7015,20 @@ var Entry = (function () {
       var body = lines.length ? lines.map(function (ln, i) {
         return '<div class="drow' + (cfg.hasData(ln.v) ? ' has' : '') + '" data-i="' + i + '"><div class="who">' + esc(ln.item.label) + (ln.item.sub ? '<small>' + ln.item.sub + '</small>' : '') +
           (ln.extra ? '<small class="pill">سطر إضافي</small>' : '') + '</div><div class="ins">' +
-          cfg.fields.map(function (k) { var f = U.fieldOf(cfg.table, k); var o = cfg.fieldOpts && cfg.fieldOpts(k, ln, st.date) || {}; return fieldMini(f, ln.v[k], i, o); }).join('') +
+          (function () {
+            var OPT = cfg.optional || ['driver_override', 'team_override', 'rate_override', 'price_override', 'remarks', 'notes', 'route'];
+            var fm = function (k) { var f = U.fieldOf(cfg.table, k); var o = cfg.fieldOpts && cfg.fieldOpts(k, ln, st.date) || {}; return fieldMini(f, ln.v[k], i, o); };
+            var main = cfg.fields.filter(function (k) { return OPT.indexOf(k) < 0; }), opt = cfg.fields.filter(function (k) { return OPT.indexOf(k) >= 0; });
+            var filled = opt.some(function (k) { var v = ln.v[k]; return v !== undefined && v !== null && v !== ''; });
+            return main.map(fm).join('') + (opt.length ? '<button type="button" class="dg-more' + (filled ? ' on' : '') + '" data-dgmore>' + L('تفاصيل', 'More') + (filled ? ' •' : '') + '</button><div class="dg-opt' + (filled ? ' open' : '') + '">' + opt.map(fm).join('') + '</div>' : '');
+          })() +
           '</div><div class="calc" data-calc="' + i + '"></div></div>';
       }).join('') : '<div class="card empty">' + esc(cfg.emptyText || 'لا توجد عناصر نشطة في هذا التاريخ') + '</div>';
       el.innerHTML = head + (warnDay ? '<div class="warnbox">' + esc(warnDay) + '</div>' : '') +
         (cfg.quick ? '<div class="bar">' + cfg.quick.map(function (q, i) { return '<button class="btn sm" data-dg-q="' + i + '">' + esc(q.l) + '</button>'; }).join('') + '</div>' : '') +
         '<div class="day-rows">' + body + '</div>' + (commonHtml ? '<div style="margin-top:10px">' + commonHtml + '</div>' : '') +
         (cfg.allowExtra && can ? '<div class="bar" style="margin-top:8px"><select class="inp" style="max-width:260px" data-dg-extra><option value="">+ سطر إضافي لـ…</option>' + cfg.items(st.date, true).map(function (it) { return '<option value="' + esc(it.id) + '">' + esc(it.label) + '</option>'; }).join('') + '</select></div>' : '') +
-        '<div class="live" data-live><div data-live-stats style="display:contents"></div><div class="grow"></div><span data-dirty style="font-size:12px;opacity:.8"></span>' +
+        '<div class="live" data-live><button type="button" class="lv-tg" data-lvtg aria-label="' + L('التفاصيل', 'Details') + '"></button><div data-live-stats style="display:contents"></div><div class="grow"></div><span data-dirty style="font-size:12px;opacity:.8"></span>' +
         (can ? '<button class="btn pri" data-dg-save>حفظ اليوم</button>' : '') + '</div>';
       bind(); refresh();
     }
@@ -7063,7 +7185,7 @@ var Entry = (function () {
         var key = C.periodKey(date, ctx.cycle('bus')), rg = C.periodRange(key, ctx.cycle('bus'));
         var other = U.rows('bus_log').filter(function (r) { return C.inRange(r.date, rg.from, rg.to) && r.date !== date; }).map(function (r) { return C.busRow(ctx, r); });
         var per = C.taxCalc(ctx, 'bus', other.map(function (b) { return { date: b.row.date, amount: b.cost }; }).concat(day.map(function (b) { return { date: date, amount: b.cost }; })));
-        return liveItem('رحلات اليوم', C.sum(day, function (b) { return b.legs; })) + taxItems('اليوم', dayNet) + liveItem('رحلات الفترة', C.sum(other, function (b) { return b.legs; }) + C.sum(day, function (b) { return b.legs; })) + taxItems('الفترة', per);
+        return taxItems(L('اليوم', 'Today'), dayNet, C.sum(day, function (b) { return b.legs; }), L('رحلة', 'trips')) + taxItems(L('الفترة', 'Period'), per, C.sum(other, function (b) { return b.legs; }) + C.sum(day, function (b) { return b.legs; }), L('رحلة', 'trips'));
       }
     });
   }
@@ -7115,7 +7237,7 @@ var Entry = (function () {
         var key = C.periodKey(date, ctx.cycle('cln')), rg = C.periodRange(key, ctx.cycle('cln'));
         var rep = C.clnReport(ctx, { from: rg.from, to: rg.to });
         var saved = C.sum(rep.workers, function (w) { return C.sum(w.days.filter(function (d) { return d.status === 'حضور' && d.date !== date; }), function (d) { var r = C.clnRate(ctx, w.worker.id, d.date); return r ? r.daily_rate : 0; }); });
-        return liveItem('حضور اليوم', pres.length + ' / ' + lines.length) + taxItems('اليوم', C.taxCalc(ctx, 'cln', [{ date: date, amount: day }])) + taxItems('الفترة ' + C.periodLabel(key), C.taxCalc(ctx, 'cln', [{ date: date, amount: saved + day }]));
+        return taxItems(L('اليوم', 'Today'), C.taxCalc(ctx, 'cln', [{ date: date, amount: day }]), pres.length + ' / ' + lines.length, L('حضور', 'present')) + taxItems(L('الفترة ', 'Period ') + C.periodLabel(key), C.taxCalc(ctx, 'cln', [{ date: date, amount: saved + day }]));
       }
     });
   }
@@ -10580,7 +10702,17 @@ var App = (function () {
     document.body.classList.remove("is-syncing");
     var en = I18N.get() === 'en', feat = function (ic, t) { return '<div class="lg-feat"><i>' + ICON[ic] + '</i><span>' + t + '</span></div>'; };
     document.body.innerHTML = '<div class="login">' +
-      '<section class="lg-hero"><span class="gs-markw lg-shape" aria-hidden="true"></span><span class="logo-w lg-logo" role="img" aria-label="SAFfly"></span>' +
+      '<section class="lg-hero"><span class="gs-markw lg-shape" aria-hidden="true"></span>' +
+      '<svg class="lg-sky" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' +
+        '<defs><linearGradient id="lgTr" x1="0" x2="1"><stop offset="0" stop-color="#7FE3B4" stop-opacity="0"/><stop offset=".6" stop-color="#7FE3B4" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".95"/></linearGradient></defs>' +
+        '<path class="lg-grid" d="M0 470h800M0 520h800M0 570h800"/>' +
+        '<path class="lg-route r1" d="M-40 520 C 180 470, 300 300, 520 250 S 800 170, 860 120"/>' +
+        '<path class="lg-route r2" d="M-40 580 C 220 560, 380 440, 600 400 S 820 330, 880 300"/>' +
+        '<path class="lg-trail" d="M-40 520 C 180 470, 300 300, 520 250 S 800 170, 860 120" stroke="url(#lgTr)"/>' +
+        '<g class="lg-plane"><path d="M0 0 L-14 -5 L-10 0 L-14 5 Z" fill="#fff"/></g>' +
+        '<circle class="lg-ping p1" cx="520" cy="250" r="4"/><circle class="lg-ping p2" cx="600" cy="400" r="4"/>' +
+      '</svg>' +
+      '<span class="logo-w lg-logo" role="img" aria-label="SAFfly"></span>' +
       '<div class="lg-mid"><span class="lg-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 5.2a3 3 0 0 1 0 5.6M18 19a5 5 0 0 0-2.6-4.4"/></svg>' + L('الشؤون الإدارية والموارد البشرية', 'Admin & HR') + '</span>' +
       '<h1>' + L('منظومة الشؤون الإدارية<br>والموارد البشرية', 'Admin &amp; HR<br>System') + '</h1>' +
       '<p>' + L('الخدمات اليومية والمصروفات والتقارير لساف فلاي مصر — في مكان واحد، بأرقام دقيقة وموثّقة.', 'Daily services, spending and reporting for SAFfly Egypt — in one place, with accurate and documented figures.') + '</p>' +
