@@ -2506,6 +2506,7 @@ html[data-motion="off"] .dkpi.hero::before,html[data-motion="off"] .dl-ar{animat
 .f-rng select{height:44px;padding:0 12px;border:1px solid var(--field-line);border-radius:12px;background:var(--surface);font:inherit;font-size:13.5px;color:var(--ink)}
 @media (max-width:700px){.f-rng input[type=date]{flex:1 1 40%;min-width:0}.f-rng select{flex:1 1 100%}.fcard .d-chips{gap:8px 12px}.fcard .chip-g em{flex-basis:100%}.fcard .chip-g em:after{content:none}}
 .fcard .seg button{white-space:nowrap}@media (max-width:700px){.fcard .seg{overflow-x:auto;scrollbar-width:none}.fcard .seg button{padding:0 12px}}
+.f-ex{font-size:12px;font-weight:600;color:var(--ink-2);margin-inline-start:auto}.f-ex small{color:var(--grey);font-weight:500}
 
 /* ============ Report pages (A4) — same look as the Excel statements ============ */
 .rp{width:210mm;min-height:297mm;background:#fff;margin:0 auto 16px;padding:10mm 9mm;box-shadow:0 2px 10px rgba(0,0,0,.08);
@@ -3763,10 +3764,11 @@ var Calc = (function () {
   }
 
   /* section cost for a period (used by the general dashboard) — net amounts */
+  /* housing COST of a period = monthly rent of the contracts running in it + maintenance (same as the monthly report / cost ledger).
+     Deposits, commissions and cards are cash paid out, not monthly cost — they stay in the housing dues report. */
   function accPeriodCost(ctx, key) {
-    var rg = periodRange(key, ctx.cycle('acc'));
-    var d = accMonthlyDues(ctx, rg.from, rg.to, 'الكل', rg.to);
-    return d.totals.total;
+    var rg = periodRange(key, ctx.cycle('acc')), inc = !!ctx.inclEx, led = costLedger(ctx, rg.from, rg.to, { includeExcluded: inc });
+    return r2(sum(led.lines.filter(function (l) { return (l.svc === 'acc' || l.svc === 'accm') && (inc || !l.excluded); }), function (l) { return l.total; }));
   }
 
   /* ============================================================
@@ -5733,8 +5735,13 @@ var Analytics = (function () {
       return { sec: sec, range: rg, by: 'vehicle', rows: rows, note: b.gran === 'day' || b.gran === 'week' ? 'monthly' : '' };
     }
     if (sec === 'acc') {
-      var dues = C.accMonthlyDues(ctx, rg.from, rg.to, 'الكل', rg.to);
-      rows = (dues.rows || dues.units || []).map(function (u) { return { label: u.name || (u.unit && u.unit.name) || u.key || '—', value: r2(num(u.total || u.amount || u.monthly)), sub: u.location || (u.unit && u.unit.location) || '' }; }).filter(function (x) { return x.value; }).sort(function (x, y) { return y.value - x.value; });
+      var inc = !!ctx.inclEx, led = C.costLedger(ctx, rg.from, rg.to, { includeExcluded: inc }), g = {};
+      led.lines.filter(function (l) { return (l.svc === 'acc' || l.svc === 'accm') && (inc || !l.excluded); }).forEach(function (l) {
+        var mt = l.svc === 'accm', k = (mt ? 'm|' : 'r|') + (l.desc || l.doc);
+        var o = g[k] = g[k] || { label: (mt ? (I18N.get() === 'en' ? 'Maintenance — ' : 'صيانة — ') : '') + String(l.desc || l.doc || '—').replace(' (excluded unit)', I18N.get() === 'en' ? ' (excluded unit)' : ' (وحدة مستبعدة)'), value: 0, sub: [l.loc, mt ? '' : l.supplier].filter(Boolean).join(' · ') };
+        o.value = r2(o.value + l.total);
+      });
+      rows = Object.keys(g).map(function (k) { return g[k]; }).filter(function (x) { return x.value; }).sort(function (x, y) { return y.value - x.value; });
       if (!rows.length) rows = [{ label: nameOf('acc', false), value: value(ctx, 'acc', b) || 0, sub: '' }];
       return { sec: sec, range: rg, by: 'unit', rows: rows, note: b.gran === 'day' || b.gran === 'week' ? 'monthly' : '' };
     }
@@ -6089,6 +6096,7 @@ var U = (function () {
   function rebuild() {
     ctx = C.makeCtx(S.data, S.settings, S.today);
     ctx.lists = S.lists;
+    try { ctx.inclEx = !!(window.Prefs && Prefs.get().inclEx); } catch (e) { }
     var drivers = (S.lists.drivers || []).slice();
     ['veh_vehicles', 'veh_terms', 'bus_terms'].forEach(function (t) { (S.data[t] || []).forEach(function (r) { if (r.driver && drivers.indexOf(r.driver) < 0) drivers.push(r.driver); }); });
     S.dyn = { drivers: drivers, suppliers: C.uniq((S.lists.suppliers || []).concat((S.data.core_suppliers || []).filter(active).map(function (r) { return r.name; }))) };
@@ -8359,6 +8367,9 @@ var Dash = (function () {
       set(a + '|' + z);
     };
   }
+  /* units marked «excluded from reports» (e.g. the guest chalet): out by default, one tick brings them back everywhere */
+  function exNames() { return U.rows('acc_units').filter(function (u) { return C.truthy(u.exclude_reports); }).map(function (u) { return u.name; }); }
+  function bindEx(m, p, rr) { var x = $('[data-' + p + 'ex]', m); if (x) x.onchange = function () { Prefs.set({ inclEx: x.checked }); U.rebuild(); rr(); }; }
   function money(v) { return Charts.full(Math.round(v || 0)); }
   function bl(b) { return I18N.get() === 'en' ? b.short : b.shortAr; }
   function kpi(o) {
@@ -8433,7 +8444,7 @@ var Dash = (function () {
       '<div class="f-fld">' + L('الفترة', 'Period') + (gran === 'range' ? rangeBox(b, 'd') :
         '<div class="stepper"><button type="button" data-dst="-1">‹</button><span><b>' + esc(b.label) + '</b><small dir="ltr">' + C.fmtDate(b.from) + ' → ' + C.fmtDate(b.to) + '</small></span><button type="button" data-dst="1"' + (b.to >= ctx.today ? ' disabled' : '') + '>›</button><button type="button" class="now" data-dst="0">' + L('الحالية', 'Current') + '</button></div>') + '</div>' +
       '<div class="f-fld f-secs">' + L('الأقسام', 'Sections') + '<div class="d-chips">' + (window.SEC_GROUPS || [{ secs: all }]).map(function (g) { var l = g.secs.filter(function (s) { return all.indexOf(s) >= 0; }); return l.length ? '<span class="chip-g">' + (g.ar ? '<em>' + L(g.ar, g.en) + '</em>' : '') + l.map(function (s) { return '<button type="button" data-ds="' + s + '" class="' + (secs.indexOf(s) >= 0 ? 'on' : '') + '" style="--c:' + Charts.color(0, s) + '"><i></i>' + esc(UX.secLabel(s)) + (daily && !A.isDaily(s) ? ' <em class="mo">' + L('شهري', 'monthly') + '</em>' : '') + '</button>'; }).join('') + '</span>' : ''; }).join('') +
-      '<button type="button" class="lnk" data-dsall>' + (secs.length === all.length ? L('إلغاء الكل', 'Clear') : L('تحديد الكل', 'Select all')) + '</button></div></div></div></div>';
+      '<label class="chk f-ex" title="' + esc(exNames().join('، ')) + '"><input type="checkbox" data-dex' + (ctx.inclEx ? ' checked' : '') + '> ' + L('ضم الوحدات المستبعدة', 'Include excluded units') + (exNames().length ? ' <small>(' + esc(exNames().join('، ')) + ')</small>' : '') + '</label>' + '<button type="button" class="lnk" data-dsall>' + (secs.length === all.length ? L('إلغاء الكل', 'Clear') : L('تحديد الكل', 'Select all')) + '</button></div></div></div></div>';
 
     /* ---------- widgets ---------- */
     var W = {};
@@ -8495,6 +8506,7 @@ var Dash = (function () {
     $$('[data-dg]', m).forEach(function (x) { x.onclick = function () { st.gran = x.dataset.dg; st.anchor = null; rr(); }; });
     $$('[data-dst]', m).forEach(function (x) { x.onclick = function () { var d = +x.dataset.dst; st.anchor.v = d === 0 ? A.defaultAnchor(ctx, gran) : A.shift(ctx, gran, anchor, d); rr(); }; });
     bindRange(m, 'd', function (v) { st.anchor.v = v; rr(); }, b, ctx);
+    bindEx(m, 'd', rr);
     $$('[data-ds]', m).forEach(function (x) { x.onclick = function () { var s = x.dataset.ds, i = st.secs.indexOf(s); if (i >= 0) st.secs.splice(i, 1); else st.secs.push(s); rr(); }; });
     $('[data-dsall]', m).onclick = function () { st.secs = secs.length === all.length ? [] : all.slice(); rr(); };
     $('[data-dcust]', m).onclick = function () { customize(rr); };
@@ -8531,7 +8543,7 @@ var Dash = (function () {
     $('[data-wsave]', ov).onclick = function () { Prefs.set({ dash: { order: ly.map(function (w) { return w.id; }), hidden: ly.filter(function (w) { return w.hidden; }).map(function (w) { return w.id; }) } }); U.close(ov); done(); U.toast(L('تم حفظ تخطيط اللوحة ✓', 'Dashboard layout saved ✓')); };
     $('[data-wreset]', ov).onclick = function () { Prefs.set({ dash: { order: [], hidden: [] } }); U.close(ov); done(); };
   }
-  var Dash = { render: render, rangeBox: rangeBox, bindRange: bindRange };
+  var Dash = { render: render, rangeBox: rangeBox, bindRange: bindRange, exNames: exNames, bindEx: bindEx };
   return Dash;
 })();
 
@@ -8688,7 +8700,7 @@ var Fin = (function () {
       '<div class="f-fld">' + L('العرض', 'View') + '<div class="seg">' + GR.map(function (g) { return '<button type="button" data-fg="' + g[0] + '" class="' + (gran === g[0] ? 'on' : '') + '">' + L(g[1], g[2]) + '</button>'; }).join('') + '</div></div>' +
       '<div class="f-fld">' + L('الفترة', 'Period') + (gran === 'range' ? Dash.rangeBox(b, 'f') : '<div class="stepper"><button type="button" data-fs="-1" aria-label="prev">‹</button><span><b>' + esc(b.label) + '</b><small dir="ltr">' + C.fmtDate(b.from) + ' → ' + C.fmtDate(b.to) + '</small></span><button type="button" data-fs="1" aria-label="next"' + (b.to >= ctx.today ? ' disabled' : '') + '>›</button><button type="button" class="now" data-fs="0">' + L('الحالية', 'Current') + '</button></div>') + '</div>' +
       '<div class="f-fld">' + L('المقارنة مع', 'Compare with') + '<div class="seg sm"><button type="button" data-fc="prev" class="' + (st.cmp === 'prev' ? 'on' : '') + '">' + L('الفترة السابقة', 'Previous') + '</button><button type="button" data-fc="yoy" class="' + (st.cmp === 'yoy' ? 'on' : '') + '">' + L('العام الماضي', 'Last year') + '</button></div></div>' +
-      '<div class="f-fld f-secs">' + L('الأقسام', 'Sections') + '<div class="d-chips"><span class="chip-g">' + all.map(function (s) { return '<button type="button" data-fsec="' + s + '" class="' + (secs.indexOf(s) >= 0 ? 'on' : '') + '" style="--c:' + Charts.color(0, s) + '"><i></i>' + esc(UX.secLabel(s)) + (daily && !A.isDaily(s) ? ' <em class="mo">' + L('شهري', 'monthly') + '</em>' : '') + '</button>'; }).join('') + '<button type="button" class="lnk" data-fall>' + (secs.length === all.length ? L('إلغاء الكل', 'Clear') : L('الكل', 'All')) + '</button></span></div></div></div>' +
+      '<div class="f-fld f-secs">' + L('الأقسام', 'Sections') + '<div class="d-chips"><span class="chip-g">' + all.map(function (s) { return '<button type="button" data-fsec="' + s + '" class="' + (secs.indexOf(s) >= 0 ? 'on' : '') + '" style="--c:' + Charts.color(0, s) + '"><i></i>' + esc(UX.secLabel(s)) + (daily && !A.isDaily(s) ? ' <em class="mo">' + L('شهري', 'monthly') + '</em>' : '') + '</button>'; }).join('') + '<label class="chk f-ex" title="' + esc(Dash.exNames().join('، ')) + '"><input type="checkbox" data-fex' + (ctx.inclEx ? ' checked' : '') + '> ' + L('ضم الوحدات المستبعدة', 'Include excluded units') + (Dash.exNames().length ? ' <small>(' + esc(Dash.exNames().join('، ')) + ')</small>' : '') + '</label>' + '<button type="button" class="lnk" data-fall>' + (secs.length === all.length ? L('إلغاء الكل', 'Clear') : L('الكل', 'All')) + '</button></span></div></div></div>' +
       (skipped.length ? '<div class="infobox fin-note">' + I.clock + '<span>' + L('في العرض اليومي والأسبوعي تظهر البنود المسجَّلة يوميًا فقط. ', 'Daily and weekly views include day-to-day items only. ') + '<b>' + skipped.map(UX.secLabel).join('، ') + '</b>' + L(' تُحاسَب شهريًا — اختر «شهري» أو «سنوي» لرؤيتها.', ' are billed monthly — switch to Monthly or Yearly to include them.') + '</span></div>' : '') + '</div>';
 
     /* ---------- KPIs ---------- */
@@ -8741,6 +8753,7 @@ var Fin = (function () {
     $$('[data-fg]', m).forEach(function (x) { x.onclick = function () { st.gran = x.dataset.fg; st.anchor = null; rr(); }; });
     $$('[data-fs]', m).forEach(function (x) { x.onclick = function () { var d = +x.dataset.fs; st.anchor.v = d === 0 ? A.defaultAnchor(ctx, gran) : A.shift(ctx, gran, anchor, d); rr(); }; });
     Dash.bindRange(m, 'f', function (v) { st.anchor.v = v; rr(); }, b, ctx);
+    Dash.bindEx(m, 'f', rr);
     $$('[data-fc]', m).forEach(function (x) { x.onclick = function () { st.cmp = x.dataset.fc; rr(); }; });
     $$('[data-fsec]', m).forEach(function (x) { x.onclick = function () { var s = x.dataset.fsec, i = st.secs.indexOf(s); if (i >= 0) st.secs.splice(i, 1); else st.secs.push(s); rr(); }; });
     $('[data-fall]', m).onclick = function () { st.secs = secs.length === all.length ? [] : all.slice(); rr(); };
