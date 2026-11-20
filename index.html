@@ -2470,6 +2470,42 @@ html[data-motion="off"] .dkpi.hero::before,html[data-motion="off"] .dl-ar{animat
 @media (max-width:700px){.lg-sky .lg-route.r2,.lg-sky .lg-grid{display:none}}
 @media (prefers-reduced-motion:reduce){.lg-sky *,.lg-hero .lg-shape,.lg-hero .lg-mid>*,.lg-hero .lg-foot,.lg-form .lg-box2,.lg-btn:after{animation:none!important}.lg-sky .lg-plane{display:none}}
 @media print{.will-see{opacity:1!important;transform:none!important;animation:none!important}}
+/* ===== data review & repair ===== */
+.rv-h{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
+.rv-h p{margin:6px 0 0;color:var(--ink-2);font-size:13px;line-height:1.7;max-width:760px}
+.rv-items{display:flex;flex-direction:column;gap:10px;margin:6px 0 12px}
+.rv-i{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);cursor:pointer;border-inline-start:4px solid #94A3B8}
+.rv-i.high{border-inline-start-color:#DC2626}.rv-i.mid{border-inline-start-color:#D97706}.rv-i.low{border-inline-start-color:#2563EB}
+.rv-i input{margin-top:4px;width:18px;height:18px;flex:none}
+.rv-i p{margin:6px 0 0;font-size:12.5px;color:var(--ink-2)}
+.rv-t1{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.rv-t1 b{font-size:14px}
+.rv-sev{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:999px;background:#FEE2E2;color:#B91C1C}
+.rv-i.mid .rv-sev{background:#FEF3C7;color:#B45309}.rv-i.low .rv-sev{background:#DBEAFE;color:#1D4ED8}
+.rv-sec{font-size:11px;color:var(--grey);font-weight:700}
+.rv-list{margin:6px 0 0;padding-inline-start:18px;font-size:12.5px;color:var(--ink-2);line-height:1.8}
+.rv-note{color:var(--grey)!important;font-size:11.5px!important}
+.rv-t{border-collapse:collapse;margin-top:6px;font-size:12px}
+.rv-t th,.rv-t td{border:1px solid var(--line);padding:4px 10px;text-align:center}
+.rv-t th{background:var(--soft,#F1F5F9)}
+.rv-log{max-height:220px;overflow:auto;background:#0F172A;color:#E2E8F0;border-radius:12px;padding:10px 14px;font:12px/1.7 ui-monospace,monospace;direction:rtl}
+@media (max-width:700px){.rv-h{flex-direction:column}.rv-h .btn{width:100%}}
+.inv-file label.btn,.upl-a label.btn{display:inline-flex;align-items:center;margin:0;width:auto;font-size:13px;font-weight:700;color:var(--ink)}
+.t tr.row-warn td{background:#FFFBEB}
+/* ===== filters: sections on their own full row, groups inline; custom range ===== */
+.fcard .f-secs{flex:1 1 100%;min-width:0}
+.fcard .d-chips{flex-direction:row;flex-wrap:wrap;gap:10px 22px;align-items:center}
+.fcard .chip-g{gap:8px}
+.fcard .chip-g em{min-width:0;margin-inline-end:2px}
+.fcard .chip-g em:after{content:"·";margin-inline-start:6px;opacity:.5}
+.fcard .d-chips .lnk{align-self:center}
+.stepper span small{display:block;font-size:10.5px;font-weight:600;color:var(--grey);margin-top:2px}
+.f-rng{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-height:46px}
+.f-rng input[type=date]{height:44px;padding:0 12px;border:1px solid var(--field-line);border-radius:12px;background:var(--surface);font:inherit;font-size:14px;color:var(--ink)}
+.f-rng span{color:var(--grey);font-weight:700}
+.f-rng select{height:44px;padding:0 12px;border:1px solid var(--field-line);border-radius:12px;background:var(--surface);font:inherit;font-size:13.5px;color:var(--ink)}
+@media (max-width:700px){.f-rng input[type=date]{flex:1 1 40%;min-width:0}.f-rng select{flex:1 1 100%}.fcard .d-chips{gap:8px 12px}.fcard .chip-g em{flex-basis:100%}.fcard .chip-g em:after{content:none}}
+.fcard .seg button{white-space:nowrap}@media (max-width:700px){.fcard .seg{overflow-x:auto;scrollbar-width:none}.fcard .seg button{padding:0 12px}}
 
 /* ============ Report pages (A4) — same look as the Excel statements ============ */
 .rp{width:210mm;min-height:297mm;background:#fff;margin:0 auto 16px;padding:10mm 9mm;box-shadow:0 2px 10px rgba(0,0,0,.08);
@@ -3047,6 +3083,7 @@ var Calc = (function () {
   /* ============================================================
      BUSES
      ============================================================ */
+  function isSnack(g) { return g === 'ساندوتش' || g === 'وجبة خفيفة' || /snack|sandwich/i.test(String(g || '')); }
   function busRow(ctx, row) {
     var term = effective(ctx.T('bus_terms').filter(function (t) { return t.bus_id === row.bus_id; }), row.date);
     var legs = (truthy(row.going) ? 1 : 0) + (truthy(row['return']) ? 1 : 0);
@@ -3093,12 +3130,12 @@ var Calc = (function () {
     var days = groupBy(R, function (x) { return x.row.date + '|' + x.row.location_id; });
     var daily = Object.keys(days).sort().map(function (k) {
       var a = days[k], r0_ = a[0].row, loc = ctx.byId('meal_locations', r0_.location_id);
-      var meals = sum(a.filter(function (x) { return x.group !== 'ساندوتش'; }), function (x) { return x.row.qty; });
-      var sand = sum(a.filter(function (x) { return x.group === 'ساندوتش'; }), function (x) { return x.row.qty; });
+      var meals = sum(a.filter(function (x) { return !isSnack(x.group); }), function (x) { return x.row.qty; });
+      var sand = sum(a.filter(function (x) { return isSnack(x.group); }), function (x) { return x.row.qty; });
       var receipt = uniq(a.map(function (x) { return x.row.serial_no || x.row.invoice_no; }).filter(Boolean)).join(', ');
       return { date: r0_.date, location: loc ? loc.name : '', meals: meals, sand: sand, total: meals + sand,
-        mealsEgp: sum(a.filter(function (x) { return x.group !== 'ساندوتش'; }), function (x) { return x.amount; }),
-        sandEgp: sum(a.filter(function (x) { return x.group === 'ساندوتش'; }), function (x) { return x.amount; }),
+        mealsEgp: sum(a.filter(function (x) { return !isSnack(x.group); }), function (x) { return x.amount; }),
+        sandEgp: sum(a.filter(function (x) { return isSnack(x.group); }), function (x) { return x.amount; }),
         amount: sum(a, function (x) { return x.amount; }), receipt: receipt, lines: a };
     });
     var byType = mealTypes(ctx).map(function (t) {
@@ -4078,7 +4115,7 @@ var Calc = (function () {
     makeCtx: makeCtx, effective: effective, taxCalc: taxCalc, taxesFor: taxesFor, settlementsFor: settlementsFor,
     vehLogRow: vehLogRow, vehReport: vehReport, vehDashboard: vehDashboard, vehDayPreview: vehDayPreview, vehTermAt: vehTermAt, vehicles: vehicles, vehDrivers: vehDrivers,
     busRow: busRow, busReport: busReport,
-    mealPrice: mealPrice, mealTypes: mealTypes, mealReport: mealReport, mealDayPreview: mealDayPreview,
+    mealPrice: mealPrice, isSnack: isSnack, mealTypes: mealTypes, mealReport: mealReport, mealDayPreview: mealDayPreview,
     clnReport: clnReport, clnRate: clnRate, clnHours: clnHours, clnChecks: clnChecks, clnWorkers: clnWorkers,
     fwRefuelsCalc: fwRefuelsCalc, fwFleetReport: fwFleetReport, carPurchaseAmount: carPurchaseAmount, carMaintAmount: carMaintAmount, carMaintLines: carMaintLines, carMaintLineAmount: carMaintLineAmount, carMaintCovers: carMaintCovers, carPlans: carPlans, carDocs: carDocs, carOdometer: carOdometer, carServiceStatus: carServiceStatus, carCost: carCost, carsOverview: carsOverview, carWarnDays: carWarnDays, fwSustainability: fwSustainability, fwPrice: fwPrice, fwPriceRow: fwPriceRow, fwFreight: fwFreight, fwRow: fwRow, wtrRow: wtrRow, wtrReport: wtrReport, grnCalc: grnCalc, poCalc: poCalc, invCalc: invCalc, priceRowFor: priceRowFor, supplierStatement: supplierStatement, moneyWords: moneyWords, fwSupplyReport: fwSupplyReport,
     panPrice: panPrice, panReport: panReport,
@@ -4318,12 +4355,12 @@ var Reports = (function () {
   /* ============================================================ MEALS */
   function mealStatement(ctx, p) {
     var r = C.mealReport(ctx, p.range, p.location), T = r.totals;
-    var mealTypes = r.byType.filter(function (t) { return t.type.group !== 'ساندوتش'; }).map(function (t) { return t.type.name; });
+    var mealTypes = r.byType.filter(function (t) { return !C.isSnack(t.type.group); }).map(function (t) { return t.type.name; });
     var h = hdr(ctx, { title: 'Meals & Catering Statement', period: rangeTxt(p.range), sub: 'Catering account — daily log   •   ' + C.fmtDateLong(p.range.from).replace(/ \d{4}$/, '') + ' – ' + C.fmtDateLong(p.range.to), right: 'Meals Register' });
-    h += kband([{ v: I(T.days), l: 'Days served', s: 'Fridays off' }, { v: I(T.meals), l: 'Meals', s: esc(mealTypes.join(' • ')) }, { v: I(T.sand), l: 'Sandwiches', s: 'light meal' },
+    h += kband([{ v: I(T.days), l: 'Days served', s: 'Fridays off' }, { v: I(T.meals), l: 'Meals', s: esc(mealTypes.join(' • ')) }, { v: I(T.sand), l: 'Light meals', s: 'وجبة خفيفة' },
       { v: M(T.avgDay), l: 'Avg / day (EGP)', s: I(T.itemsDay) + ' items per day' }, { v: M(T.total), l: 'Total amount (EGP)', s: I(T.meals) + ' meals + ' + I(T.sand) + ' sandwiches', hl: 1 }]);
     h += table([{ h: '#', f: function (d, i) { return i + 1; }, cls: 'c' }, { h: 'Date', f: function (d) { return C.fmtDate(d.date); }, cls: 'c' }, { h: 'Day', f: function (d) { return C.dayName(d.date); }, cls: 'c' },
-      { h: 'Location', f: function (d) { return esc(d.location); }, cls: 'c' }, { h: 'Meals', f: function (d) { return I(d.meals); }, cls: 'n' }, { h: 'Sandwiches', f: function (d) { return I(d.sand); }, cls: 'n' },
+      { h: 'Location', f: function (d) { return esc(d.location); }, cls: 'c' }, { h: 'Meals', f: function (d) { return I(d.meals); }, cls: 'n' }, { h: 'Light meals', f: function (d) { return I(d.sand); }, cls: 'n' },
       { h: 'Total', f: function (d) { return I(d.total); }, cls: 'n' }, { h: 'Receipt No.', f: function (d) { return esc(d.receipt); }, cls: 'c' }, { h: 'Meals EGP', f: function (d) { return M(d.mealsEgp); }, cls: 'n' },
       { h: 'Sandw. EGP', f: function (d) { return M(d.sandEgp); }, cls: 'n' }, { h: 'Amount (EGP)', f: function (d) { return '<b>' + M(d.amount) + '</b>'; }, cls: 'n' },
       { h: 'Status', f: function (d) { return d.receipt ? st('✔ Receipt') : '<span class="st mute">No receipt</span>'; }, cls: 'c' }],
@@ -5550,6 +5587,8 @@ var Analytics = (function () {
 
   function memo(ctx, k, fn) { ctx._an = ctx._an || {}; if (!(k in ctx._an)) ctx._an[k] = fn(); return ctx._an[k]; }
   function isDaily(sec) { return DAILY.indexOf(sec) >= 0; }
+  /* day, week and a custom range that is not whole billing periods count only the day-to-day items */
+  function isDailyGran(gran, b) { return gran === 'day' || gran === 'week' || (gran === 'range' && !(b && b.whole)); }
   function nameOf(sec, ar) { return ar ? (SEC_AR[sec] || sec) : (SEC_EN[sec] || sec); }
 
   /* ---------------- cost ledger: one entry per priced record ---------------- */
@@ -5604,6 +5643,12 @@ var Analytics = (function () {
   function weekStart(d) { var wd = C.isoWeekday(d); return C.addDays(d, -((wd - 6 + 7) % 7)); } // weeks start on Saturday
   function curKey(ctx) { return ctx.currentPeriod('gen'); }
   function bucket(ctx, gran, anchor) {
+    if (gran === 'range') {
+      var pr = String(anchor || '').split('|'), f = pr[0] || C.monthStart(ctx.today), t = pr[1] || ctx.today; if (t < f) { var tmp = f; f = t; t = tmp; }
+      var cy = ctx.cycle('gen'), ks = C.periodsBetween(C.periodKey(f, cy), C.periodKey(t, cy)), whole = C.rangeOfPeriods(ks, cy);
+      var sh = function (d, A) { return d.slice(8, 10) + ' ' + A[+d.slice(5, 7) - 1]; };
+      return { gran: 'range', key: f + '|' + t, from: f, to: t, label: C.fmtDate(f) + ' – ' + C.fmtDate(t), short: sh(f, MON) + '–' + sh(t, MON), shortAr: sh(f, MON_AR) + '–' + sh(t, MON_AR), keys: ks, whole: whole.from === f && whole.to === t };
+    }
     if (gran === 'day') { var d = anchor || ctx.today; return { gran: gran, key: d, from: d, to: d, label: C.fmtDate(d), short: d.slice(8, 10) + ' ' + MON[+d.slice(5, 7) - 1], shortAr: d.slice(8, 10) + ' ' + MON_AR[+d.slice(5, 7) - 1], keys: [C.periodKey(d, ctx.cycle('gen'))] }; }
     if (gran === 'week') {
       var s = weekStart(anchor || ctx.today), e = C.addDays(s, 6);
@@ -5622,18 +5667,26 @@ var Analytics = (function () {
   function shift(ctx, gran, anchor, n) {
     if (gran === 'day') return C.addDays(anchor, n);
     if (gran === 'week') return C.addDays(weekStart(anchor), 7 * n);
+    if (gran === 'range') { var b = bucket(ctx, 'range', anchor), len = C.diffDays(b.from, b.to) + 1; return C.addDays(b.from, len * n) + '|' + C.addDays(b.to, len * n); }
     if (gran === 'year') return String(+String(anchor).slice(0, 4) + n);
     return C.periodShift(anchor, n);
   }
-  function defaultAnchor(ctx, gran) { return gran === 'day' ? ctx.today : gran === 'week' ? weekStart(ctx.today) : gran === 'year' ? ctx.today.slice(0, 4) : curKey(ctx); }
+  function defaultAnchor(ctx, gran) { if (gran === 'range') return C.monthStart(ctx.today) + '|' + ctx.today; return gran === 'day' ? ctx.today : gran === 'week' ? weekStart(ctx.today) : gran === 'year' ? ctx.today.slice(0, 4) : curKey(ctx); }
   function series(ctx, gran, anchor, n) {
+    if (gran === 'range') { // the chart inside a custom range: days, weeks or months — whatever fits
+      var b = bucket(ctx, 'range', anchor), days = C.diffDays(b.from, b.to) + 1, o = [];
+      if (b.whole && b.keys.length > 1) return b.keys.map(function (k) { return bucket(ctx, 'month', k); });
+      if (days <= 45) { for (var d = b.from; d <= b.to; d = C.addDays(d, 1)) o.push(bucket(ctx, 'day', d)); return o; }
+      for (var w = b.from; w <= b.to; w = C.addDays(w, 7)) { var e = C.addDays(w, 6) > b.to ? b.to : C.addDays(w, 6); var x = bucket(ctx, 'week', w); x.from = w; x.to = e; x.key = w; x.label = C.fmtDate(w) + ' – ' + C.fmtDate(e); o.push(x); }
+      return o;
+    }
     var out = []; for (var i = n - 1; i >= 0; i--) out.push(bucket(ctx, gran, shift(ctx, gran, anchor, -i)));
     return out;
   }
 
   /* value of one section in one bucket (null = not tracked at this granularity) */
   function secRange(ctx, sec, b) {
-    if (b.gran === 'day' || b.gran === 'week') return { from: b.from, to: b.to };
+    if (b.gran === 'day' || b.gran === 'week' || (b.gran === 'range' && !b.whole)) return { from: b.from, to: b.to };
     return C.rangeOfPeriods(b.keys, ctx.cycle(base(sec)));
   }
   /* monthly net of one (possibly virtual) section — same figures as the reports */
@@ -5650,7 +5703,7 @@ var Analytics = (function () {
     return C.secTotal(ctx, sec, k).net;
   }
   function value(ctx, sec, b) {
-    if (b.gran === 'month' || b.gran === 'year') {
+    if (b.gran === 'month' || b.gran === 'year' || (b.gran === 'range' && b.whole)) {
       return memo(ctx, 'v|' + sec + '|' + b.keys.join(','), function () {
         return r2(sum(b.keys, function (k) { return mval(ctx, sec, k); }));
       });
@@ -5798,7 +5851,7 @@ var Analytics = (function () {
   function insights(ctx, gran, anchor, secs) {
     secs = secs || ALL;
     var b = bucket(ctx, gran, anchor), p = bucket(ctx, gran, shift(ctx, gran, anchor, -1)), I = [];
-    var used = gran === 'day' || gran === 'week' ? secs.filter(isDaily) : secs;
+    var used = isDailyGran(gran, b) ? secs.filter(isDaily) : secs;
     var t = total(ctx, used, b), tp = total(ctx, used, p), ch = change(t, tp);
     var fm = function (v) { return C.fmtMoney(v, 0) + ' EGP'; };
     if (t || tp) {
@@ -5944,7 +5997,7 @@ var Analytics = (function () {
   }
 
   return {
-    ALL: ALL, DAILY: DAILY, base: base, expand: expand, mval: mval, MONTHLY: MONTHLY, SEC_EN: SEC_EN, SEC_AR: SEC_AR, nameOf: nameOf, isDaily: isDaily,
+    ALL: ALL, DAILY: DAILY, base: base, expand: expand, mval: mval, MONTHLY: MONTHLY, SEC_EN: SEC_EN, SEC_AR: SEC_AR, nameOf: nameOf, isDaily: isDaily, isDailyGran: isDailyGran,
     ledger: ledger, ledgerIn: ledgerIn, firstDate: firstDate, weekStart: weekStart,
     bucket: bucket, shift: shift, defaultAnchor: defaultAnchor, series: series, value: value, total: total, matrix: matrix, change: change, secRange: secRange,
     breakdown: breakdown, budget: budget, budgetVsActual: budgetVsActual, forecast: forecast, anomalies: anomalies, heat: heat, suppliers: suppliers, insights: insights, control: control
@@ -6978,6 +7031,21 @@ var Entry = (function () {
     var t = e.target.closest && e.target.closest('[data-dgmore]'); if (!t) return;
     var o = t.nextElementSibling; if (o) { o.classList.toggle('open'); t.classList.toggle('on', o.classList.contains('open')); }
   });
+  /* invoice photo / PDF: uploaded at once to Drive (Invoices/<folder>), the link is kept on the record */
+  function invFile(url, key) {
+    return '<div class="inv-file" data-invf="' + key + '">' + (url ? '<a class="btn sm ghost" href="' + esc(url) + '" target="_blank" rel="noopener">' + L('فتح الفاتورة ↗', 'Open invoice ↗') + '</a>' : '') +
+      '<label class="btn sm"><input type="file" accept="image/*,application/pdf" capture="environment" hidden data-invup="' + key + '">' + (url ? L('تغيير', 'Replace') : L('📷 رفع صورة', '📷 Upload')) + '</label><span class="inv-st" data-invst="' + key + '"></span></div>';
+  }
+  function bindInvFile(z, key, folderFn, done) {
+    var inp = $('[data-invup="' + key + '"]', z); if (!inp) return;
+    inp.onchange = function () {
+      var f = inp.files && inp.files[0]; if (!f) return;
+      var stt = $('[data-invst="' + key + '"]', z); stt.textContent = L('جاري الرفع…', 'Uploading…');
+      U.fileB64(f).then(function (b64) { return U.call('api_uploadFile', f.name, f.type || 'application/octet-stream', b64, folderFn(), 'invoices'); })
+        .then(function (res) { var o = typeof res === 'string' ? JSON.parse(res) : res; done(o.url); stt.innerHTML = '✓ ' + esc(f.name) + ' · <a href="' + esc(o.url) + '" target="_blank" rel="noopener">' + L('فتح', 'Open') + '</a>'; })
+        .catch(function (e) { stt.textContent = ''; U.toast(U.errMsg(e), 1); });
+    };
+  }
   function liveItem(l, v) { return '<div class="it"><div class="l">' + esc(l) + '</div><div class="v">' + v + '</div></div>'; }
 
   /* ============================================================
@@ -6985,6 +7053,7 @@ var Entry = (function () {
      ============================================================ */
   function dayGrid(el, cfg) {
     var S = U.S(), st = el._dg = el._dg || { date: S.today, group: cfg.groupDefault ? cfg.groupDefault() : '', dirty: false, showAll: false };
+    if (cfg.start) { var s0 = cfg.start(); if (s0) { st.date = s0.date || st.date; if (s0.group) st.group = s0.group; } }
     var lines = [];
     function load() {
       var ctx = U.ctx();
@@ -7011,7 +7080,7 @@ var Entry = (function () {
         '<div style="flex:1"></div><span class="pill info">' + C.dayNameAr(st.date) + ' • فترة ' + C.periodLabel(key) + ' (' + C.fmtDate(rg.from) + ' → ' + C.fmtDate(rg.to) + ')</span>' +
         (cfg.toggleAll ? '<label class="chk" style="font-size:12px"><input type="checkbox" data-dg-all' + (st.showAll ? ' checked' : '') + '> ' + esc(cfg.toggleAll) + '</label>' : '') + '</div>';
       var warnDay = cfg.dayWarn ? cfg.dayWarn(st.date) : '';
-      var commonHtml = cfg.common ? '<div class="card" style="padding:10px 12px"><div class="fgrid">' + cfg.common.map(function (k) { return U.fieldHtml(cfg.table, U.fieldOf(cfg.table, k), st.common[k], { prefix: 'dgc_', noHint: 1 }); }).join('') + '</div></div>' : '';
+      var commonHtml = cfg.common ? '<div class="card" style="padding:10px 12px"><div class="fgrid">' + cfg.common.map(function (k) { var f = U.fieldOf(cfg.table, k); if (f.t === 'file') return '<div class="fld"><label>' + esc(f.l) + '</label>' + invFile(st.common[k], 'dgc_' + k) + '</div>'; return U.fieldHtml(cfg.table, f, st.common[k], { prefix: 'dgc_', noHint: 1 }); }).join('') + (cfg.commonNote ? '<div class="hint wide">' + cfg.commonNote + '</div>' : '') + '</div></div>' : '';
       var body = lines.length ? lines.map(function (ln, i) {
         return '<div class="drow' + (cfg.hasData(ln.v) ? ' has' : '') + '" data-i="' + i + '"><div class="who">' + esc(ln.item.label) + (ln.item.sub ? '<small>' + ln.item.sub + '</small>' : '') +
           (ln.extra ? '<small class="pill">سطر إضافي</small>' : '') + '</div><div class="ins">' +
@@ -7067,7 +7136,10 @@ var Entry = (function () {
         var h = function () { var ln = lines[+inp.dataset.i], f = U.fieldOf(cfg.table, inp.dataset.k); ln.v[f.k] = f.t === 'bool' ? inp.checked : (f.t === 'num' || f.t === 'int') ? (inp.value === '' ? '' : Number(inp.value)) : inp.value; st.dirty = true; refresh(); };
         inp.addEventListener('input', h); inp.addEventListener('change', h);
       });
-      if (cfg.common) cfg.common.forEach(function (k) { var inp = $('#dgc_' + k, el); if (inp) inp.addEventListener('input', function () { st.common[k] = inp.value; st.dirty = true; refresh(); }); });
+      if (cfg.common) cfg.common.forEach(function (k) {
+        if (U.fieldOf(cfg.table, k).t === 'file') { bindInvFile(el, 'dgc_' + k, function () { return (cfg.fileFolder || cfg.sec) + '/' + st.date.slice(0, 7); }, function (url) { st.common[k] = url; st.dirty = true; refresh(); }); return; }
+        var inp = $('#dgc_' + k, el); if (inp) inp.addEventListener('input', function () { st.common[k] = inp.value; st.dirty = true; refresh(); });
+      });
     }
     function guard() { return st.dirty ? U.confirmBox('توجد تغييرات غير محفوظة في هذا اليوم. هل تريد تجاهلها؟', 'تجاهل') : Promise.resolve(true); }
     function go(d) { if (!d) return; guard().then(function (ok) { if (!ok) return; st.date = d; load(); render(); }); }
@@ -7191,11 +7263,69 @@ var Entry = (function () {
   }
 
   /* ============================================================ MEALS */
+  var mealOpen = null;
+  /* records: one line per day and place (meals + light meals side by side), invoice per day */
+  function mealDays(z) {
+    var S = U.S(), ctx = U.ctx(), st = z._md = z._md || { from: C.monthStart(S.today), to: C.monthEnd(S.today), loc: '' };
+    var locs = U.refSorted('meal_locations'), types = C.mealTypes(ctx);
+    var months = []; U.rows('meal_log').forEach(function (r) { var m = String(r.date).slice(0, 7); if (m && months.indexOf(m) < 0) months.push(m); }); months.sort().reverse();
+    var g = {};
+    U.rows('meal_log').filter(function (r) { return C.inRange(r.date, st.from, st.to) && (!st.loc || r.location_id === st.loc); }).forEach(function (r) {
+      var k = r.date + '|' + r.location_id, t = ctx.byId('meal_types', r.type_id), snack = t && C.isSnack(t.group), q = C.num(r.qty), amt = q * C.mealPrice(ctx, r.type_id, r.date);
+      var d = g[k] = g[k] || { date: r.date, loc: r.location_id, meal: 0, snack: 0, amt: 0, inv: [], ser: [], file: '', notes: [], rows: [] };
+      if (snack) d.snack += q; else d.meal += q; d.amt += amt; d.rows.push(r);
+      if (r.invoice_no && d.inv.indexOf(r.invoice_no) < 0) d.inv.push(r.invoice_no);
+      if (r.serial_no && d.ser.indexOf(r.serial_no) < 0) d.ser.push(r.serial_no);
+      if (r.invoice_file && !d.file) d.file = r.invoice_file;
+      if (r.notes && d.notes.indexOf(r.notes) < 0) d.notes.push(r.notes);
+    });
+    var days = Object.keys(g).map(function (k) { return g[k]; }).sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+    var tot = { meal: 0, snack: 0, amt: 0, noInv: 0 }; days.forEach(function (d) { tot.meal += d.meal; tot.snack += d.snack; tot.amt += d.amt; if (!d.inv.length) tot.noInv++; });
+    var locName = function (id) { var l = ctx.byId('meal_locations', id); return l ? l.name : id; };
+    var snackName = (types.filter(function (t) { return C.isSnack(t.group); })[0] || {}).name || L('وجبة خفيفة', 'Light meal');
+    z.innerHTML = '<div class="card"><div class="rng-bar"><div class="fld"><label>' + L('الشهر', 'Month') + '</label><select data-mm><option value="">' + L('— من يوم ليوم —', '— custom range —') + '</option>' + months.map(function (m) { return '<option value="' + m + '"' + (st.from === m + '-01' && st.to === C.monthEnd(m + '-01') ? ' selected' : '') + '>' + C.periodLabel(m) + '</option>'; }).join('') + '<option value="all">' + L('كل الفترات', 'All') + '</option></select></div>' +
+      '<div class="fld"><label>' + L('من', 'From') + '</label><input type="date" data-mf="from" value="' + st.from + '"></div><div class="fld"><label>' + L('إلى', 'To') + '</label><input type="date" data-mf="to" value="' + st.to + '"></div>' +
+      '<div class="fld"><label>' + L('المكان', 'Place') + '</label><div class="seg">' + [{ id: '', name: L('الكل', 'All') }].concat(locs).map(function (l) { return '<button type="button" data-ml="' + l.id + '" class="' + (st.loc === l.id ? 'on' : '') + '">' + esc(l.name) + '</button>'; }).join('') + '</div></div></div>' +
+      '<div class="dz-kpis"><div><span>' + L('أيام', 'Days') + '</span><b>' + days.length + '</b></div><div><span>' + L('وجبة', 'Meals') + '</span><b>' + C.fmtInt(tot.meal) + '</b></div><div><span>' + esc(snackName) + '</span><b>' + C.fmtInt(tot.snack) + '</b></div><div><span>' + L('الإجمالي قبل الضريبة', 'Total before tax') + '</span><b>' + M(tot.amt) + '</b></div><div' + (tot.noInv ? ' class="warn"' : '') + '><span>' + L('أيام بدون فاتورة', 'Days without invoice') + '</span><b>' + tot.noInv + '</b></div></div>' +
+      '<div class="tbl-wrap"><table class="t"><thead><tr><th>' + L('التاريخ', 'Date') + '</th><th>' + L('المكان', 'Place') + '</th><th class="n">' + L('وجبة', 'Meals') + '</th><th class="n">' + esc(snackName) + '</th><th class="n">' + L('المبلغ', 'Amount') + '</th><th>' + L('رقم الفاتورة', 'Invoice no.') + '</th><th>' + L('رقم الإيصال', 'Receipt no.') + '</th><th>' + L('ملاحظات', 'Notes') + '</th><th></th></tr></thead><tbody>' +
+      (days.length ? days.map(function (d, i) {
+        return '<tr><td><b>' + C.fmtDate(d.date) + '</b><small class="sub2">' + C.dayNameAr(d.date) + '</small></td><td>' + esc(locName(d.loc)) + '</td><td class="n"><b>' + (d.meal ? C.fmtInt(d.meal) : '—') + '</b></td><td class="n"><b>' + (d.snack ? C.fmtInt(d.snack) : '—') + '</b></td><td class="n">' + M(d.amt) + '</td>' +
+          '<td>' + (d.inv.length || d.file ? '<a href="#" class="inv-cell" data-mi="' + i + '">' + esc(d.inv.join(' / ') || L('فاتورة', 'Invoice')) + (d.file ? ' 📎' : '') + '</a>' : '<button type="button" class="pill warn inv-add" data-mi="' + i + '">' + L('+ أضف الفاتورة', '+ Add invoice') + '</button>') + '</td>' +
+          '<td>' + esc(d.ser.join(' / ')) + '</td><td class="sub2">' + esc(d.notes.join(' • ')) + '</td><td><button class="btn sm ghost" data-mo="' + i + '">' + L('فتح اليوم', 'Open day') + '</button></td></tr>';
+      }).join('') : '<tr><td colspan="9" class="empty">' + L('لا توجد وجبات في الفترة', 'No meals in this range') + '</td></tr>') + '</tbody>' +
+      (days.length ? '<tfoot><tr><td colspan="2">' + L('الإجمالي', 'Total') + '</td><td class="n">' + C.fmtInt(tot.meal) + '</td><td class="n">' + C.fmtInt(tot.snack) + '</td><td class="n">' + M(tot.amt) + '</td><td colspan="4"></td></tr></tfoot>' : '') + '</table></div></div>';
+    var redo = function () { mealDays(z); };
+    $('[data-mm]', z).onchange = function () { var v = this.value; if (v === 'all') { st.from = '2000-01-01'; st.to = '2100-12-31'; } else if (v) { st.from = v + '-01'; st.to = C.monthEnd(v + '-01'); } redo(); };
+    $$('[data-mf]', z).forEach(function (x) { x.onchange = function () { st[x.dataset.mf] = x.value; redo(); }; });
+    $$('[data-ml]', z).forEach(function (b) { b.onclick = function () { st.loc = b.dataset.ml; redo(); }; });
+    $$('[data-mo]', z).forEach(function (b) { b.onclick = function () { var d = days[+b.dataset.mo]; mealOpen = { date: d.date, group: d.loc }; App.go({ page: 'sec', sec: 'meal', tab: 'entry' }); }; });
+    $$('[data-mi]', z).forEach(function (b) { b.onclick = function (e) { e.preventDefault(); mealDayInvoice(days[+b.dataset.mi], redo); }; });
+  }
+  /* one invoice for the whole day at one place → written on every line of that day */
+  function mealDayInvoice(d, done) {
+    var v = { invoice_no: d.inv[0] || '', serial_no: d.ser[0] || '', invoice_file: d.file || '' };
+    var body = '<div class="fgrid"><div class="fld"><label>' + L('رقم الفاتورة', 'Invoice no.') + '</label><input data-iv="invoice_no" value="' + esc(v.invoice_no) + '"></div>' +
+      '<div class="fld"><label>' + L('رقم الإيصال', 'Receipt no.') + '</label><input data-iv="serial_no" value="' + esc(v.serial_no) + '"></div>' +
+      '<div class="fld"><label>' + L('صورة / PDF الفاتورة', 'Invoice photo / PDF') + '</label>' + invFile(v.invoice_file, 'mdf') + '</div></div>';
+    var ov = U.modal(L('فاتورة الوجبات', 'Meals invoice') + ' — ' + C.fmtDate(d.date), body, '<button class="btn" data-close>' + L('إلغاء', 'Cancel') + '</button><button class="btn pri" data-ivs>' + L('حفظ', 'Save') + '</button>', { sm: 1 });
+    bindInvFile(ov, 'mdf', function () { return 'Meals/' + d.date.slice(0, 7); }, function (url) { v.invoice_file = url; });
+    $('[data-ivs]', ov).onclick = function () {
+      $$('[data-iv]', ov).forEach(function (x) { v[x.dataset.iv] = x.value.trim(); });
+      var saves = d.rows.map(function (r) { return { id: r.id, invoice_no: v.invoice_no, serial_no: v.serial_no, invoice_file: v.invoice_file }; });
+      U.call('api_saveBatch', 'meal_log', saves, []).then(function (res) {
+        (res.rows || []).forEach(function (r) { U.upsert('meal_log', r); }); U.rebuild();
+        if (!res.ok) { U.toast(L('في مشكلة في الحفظ', 'Save problem'), 1); return; }
+        U.close(); U.toast(L('تم حفظ الفاتورة ✓', 'Invoice saved ✓')); if (done) done();
+      }).catch(function (e) { U.toast(U.errMsg(e), 1); });
+    };
+  }
   function meals(el) {
     dayGrid(el, {
       sec: 'meal', table: 'meal_log', itemKey: 'type_id', itemRef: 'meal_types', groupKey: 'location_id',
       groupDefault: function () { var l = U.refSorted('meal_locations'); return l[0] ? l[0].id : ''; },
-      fields: ['qty'], common: ['invoice_no', 'serial_no', 'notes'],
+      fields: ['qty'], common: ['invoice_no', 'serial_no', 'invoice_file', 'notes'], fileFolder: 'Meals',
+      start: function () { var p = mealOpen; mealOpen = null; return p; },
+      commonNote: L('الفاتورة مش معاك دلوقتي؟ سيبها فاضية واحفظ — وضيف رقمها وصورتها بعدين من هنا (افتح نفس اليوم) أو من «السجلات».', 'No invoice yet? Leave it empty and save — add the number and photo later here (open the same day) or from the records.'),
       items: function (date) { var ctx = U.ctx(); return C.mealTypes(ctx).map(function (t) { var p = C.mealPrice(ctx, t.id, date); return { id: t.id, label: t.name, sub: esc(t.group) + ' <span class="price-tag">' + M(p) + ' ج</span>' }; }); },
       fieldOpts: function (k, ln, date) { return { big: 1, label: 'العدد' }; },
       hasData: function (v) { return C.num(v.qty) > 0; },
@@ -7303,6 +7433,7 @@ var Entry = (function () {
     var S = U.S(), it = dieselItem();
     var r = st.rec = st.rec || { date: S.today, location: 'Site', item_id: it.id, supplier: defSupplier('fw_log', 'fw'), qty: '' };
     r.item_id = r.item_id || it.id;
+    if (r.hasInv === undefined) r.hasInv = !!(r.invoice_no || r.freight_invoice_no || r.invoice_file);
     var sups = U.rows('core_suppliers').filter(function (x) { return x.status !== 'Cancelled' && (!x.section || x.section === 'fw'); }).map(function (x) { return x.name; });
     U.rows('fw_log').forEach(function (x) { if (x.supplier && sups.indexOf(x.supplier) < 0) sups.push(x.supplier); });
     if (r.supplier && sups.indexOf(r.supplier) < 0) sups.push(r.supplier);
@@ -7312,9 +7443,13 @@ var Entry = (function () {
       '<div class="fld"><label>' + L('المكان', 'Place') + '</label><div class="seg dz-seg">' + ['Site', 'Port'].map(function (l) { return '<button type="button" data-dzl="' + l + '" class="' + (r.location === l ? 'on' : '') + '">' + LOCN(l) + '</button>'; }).join('') + '</div></div>' +
       '<div class="fld dz-qty"><label>' + L('الكمية (لتر)', 'Quantity (litres)') + ' <span class="req">*</span></label><input type="number" inputmode="decimal" min="0" step="any" data-dz="qty" value="' + esc(r.qty) + '" placeholder="0"></div>' +
       '<div class="fld"><label>' + L('المورد', 'Supplier') + '</label><select data-dz="supplier">' + sups.map(function (x) { return '<option' + (x === r.supplier ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select></div></div>' +
-      '<details class="dz-more"' + (r.invoice_no || r.freight_invoice_no || r.price_override || r.freight_override || r.notes ? ' open' : '') + '><summary>' + L('تفاصيل إضافية (أرقام الفواتير، سعر مختلف، ملاحظات)', 'More (invoice numbers, different price, notes)') + '</summary><div class="dz-grid">' +
-      '<div class="fld"><label>' + L('فاتورة السولار', 'Diesel invoice') + '</label><input data-dz="invoice_no" value="' + esc(r.invoice_no || '') + '"></div>' +
-      '<div class="fld"><label>' + L('فاتورة النولون', 'Freight invoice') + '</label><input data-dz="freight_invoice_no" value="' + esc(r.freight_invoice_no || '') + '"></div>' +
+      '<div class="inv-box"><div class="inv-q"><b>' + L('فاتورة المورد', 'Supplier invoice') + '</b><div class="seg sm"><button type="button" data-dzinv="1" class="' + (r.hasInv ? 'on' : '') + '">' + L('موجودة معايا', 'I have it') + '</button><button type="button" data-dzinv="0" class="' + (!r.hasInv ? 'on' : '') + '">' + L('لسه — هسجلها بعدين', 'Not yet — add later') + '</button></div></div>' +
+        (r.hasInv ? '<div class="dz-grid">' +
+          '<div class="fld"><label>' + L('رقم فاتورة السولار', 'Diesel invoice no.') + '</label><input data-dz="invoice_no" value="' + esc(r.invoice_no || '') + '"></div>' +
+          '<div class="fld"><label>' + L('رقم فاتورة النولون', 'Freight invoice no.') + '</label><input data-dz="freight_invoice_no" value="' + esc(r.freight_invoice_no || '') + '"></div>' +
+          '<div class="fld"><label>' + L('صورة / PDF الفاتورة', 'Invoice photo / PDF') + '</label>' + invFile(r.invoice_file, 'dzf') + '</div></div>'
+          : '<p class="inv-later">' + L('هيتسجل التوريد «بدون فاتورة»، وتقدر تضيف رقمها وصورتها بعدين من «التوريدات وأذون الاستلام» أو السجلات.', 'Saved as “not invoiced” — add the number and photo later from the deliveries list or the records.') + '</p>') + '</div>' +
+      '<details class="dz-more"' + (r.price_override || r.freight_override || r.notes ? ' open' : '') + '><summary>' + L('تفاصيل إضافية (سعر مختلف، ملاحظات)', 'More (different price, notes)') + '</summary><div class="dz-grid">' +
       '<div class="fld"><label>' + L('سعر لتر مختلف', 'Different price / L') + '</label><input type="number" step="any" data-dz="price_override" value="' + esc(r.price_override || '') + '" placeholder="' + L('من قائمة الأسعار', 'from the price list') + '"></div>' +
       '<div class="fld"><label>' + L('نولون مختلف', 'Different freight / L') + '</label><input type="number" step="any" data-dz="freight_override" value="' + esc(r.freight_override || '') + '" placeholder="' + L('من قائمة الأسعار', 'from the price list') + '"></div>' +
       '<div class="fld wide"><label>' + L('ملاحظات', 'Notes') + '</label><input data-dz="notes" value="' + esc(r.notes || '') + '"></div></div></details>' +
@@ -7336,12 +7471,14 @@ var Entry = (function () {
         cell(L('الشهر — الموقع', 'Month — Site'), '<span dir="ltr">' + C.fmtInt(mon('Site').q) + '</span> <small>' + L('لتر', 'L') + ' · ' + mon('Site').n + ' ' + L('توريدة', 'deliv.') + '</small>') + cell(L('الشهر — الميناء', 'Month — Port'), '<span dir="ltr">' + C.fmtInt(mon('Port').q) + '</span> <small>' + L('لتر', 'L') + ' · ' + mon('Port').n + ' ' + L('توريدة', 'deliv.') + '</small>') + '</div>';
     }
     $$('[data-dzl]', z).forEach(function (b) { b.onclick = function () { read(); r.location = b.dataset.dzl; dieselNew(z, st); }; });
+    $$('[data-dzinv]', z).forEach(function (b) { b.onclick = function () { read(); r.hasInv = b.dataset.dzinv === '1'; dieselNew(z, st); }; });
+    bindInvFile(z, 'dzf', function () { return 'Diesel/' + String(r.date || S.today).slice(0, 7); }, function (url) { r.invoice_file = url; });
     z.addEventListener('input', calc); z.addEventListener('change', calc); calc();
     var qi = $('[data-dz="qty"]', z); if (qi && !r.qty) setTimeout(function () { qi.focus(); }, 30);
     $('[data-dzgo]', z).onclick = function () { var p = z.closest('[data-dzz]').parentNode; st.k = 'list'; fuelWater(p); };
     var sb = $('[data-dzs]', z); if (sb) sb.onclick = function () {
       read();
-      var rec = { date: r.date, item_id: r.item_id, qty: r.qty, location: r.location, supplier: r.supplier, invoice_no: r.invoice_no || '', freight_invoice_no: r.freight_invoice_no || '', price_override: r.price_override || '', freight_override: r.freight_override || '', notes: r.notes || '' };
+      var rec = { date: r.date, item_id: r.item_id, qty: r.qty, location: r.location, supplier: r.supplier, invoice_no: r.hasInv ? r.invoice_no || '' : '', freight_invoice_no: r.hasInv ? r.freight_invoice_no || '' : '', invoice_file: r.hasInv ? r.invoice_file || '' : '', price_override: r.price_override || '', freight_override: r.freight_override || '', notes: r.notes || '' };
       if (!C.num(rec.qty)) { U.toast(L('اكتب الكمية', 'Enter the quantity'), 1); return; }
       var dup = U.rows('fw_log').filter(function (x) { return x.date === rec.date && (x.location || 'Site') === rec.location && C.num(x.qty) === C.num(rec.qty); })[0];
       (dup ? U.confirmBox(L('في توريد بنفس التاريخ والمكان والكمية مسجل قبل كده. تحفظ تاني؟', 'A delivery with the same date, place and quantity already exists. Save anyway?'), L('حفظ', 'Save')) : Promise.resolve(true)).then(function (ok) {
@@ -7349,7 +7486,7 @@ var Entry = (function () {
         U.call('api_save', 'fw_log', rec).then(function (res) {
           if (!res.ok) { U.toast((res.errors || []).join(' • '), 1); return; }
           U.upsert('fw_log', res.row); U.rebuild(); U.toast(L('تم حفظ التوريد ✓', 'Delivery saved ✓'));
-          st.rec = { date: r.date, location: r.location, item_id: r.item_id, supplier: r.supplier, qty: '' }; dieselNew(z, st);
+          st.rec = { date: r.date, location: r.location, item_id: r.item_id, supplier: r.supplier, qty: '', hasInv: r.hasInv }; dieselNew(z, st);
         }).catch(function (e) { U.toast(U.errMsg(e), 1); });
       });
     };
@@ -7369,8 +7506,8 @@ var Entry = (function () {
       '<div class="tbl-wrap"><table class="t"><thead><tr><th></th><th>' + L('التاريخ', 'Date') + '</th><th>' + L('المكان', 'Place') + '</th><th class="n">' + L('لتر', 'Litres') + '</th><th class="n">' + L('القيمة', 'Value') + '</th><th class="n">' + L('ق.م', 'VAT') + '</th><th class="n">' + L('شامل الضريبة', 'Incl. VAT') + '</th><th>' + L('الفواتير', 'Invoices') + '</th><th>GRN</th><th></th></tr></thead><tbody>' +
       (rows.length ? rows.map(function (x) {
         var r = x.row, g = x.grn;
-        return '<tr><td>' + (g ? '' : '<input type="checkbox" data-gs="' + r.id + '"' + (st.gsel[r.id] ? ' checked' : '') + '>') + '</td><td>' + C.fmtDate(r.date) + '</td><td><span class="pill ' + ((r.location || 'Site') === 'Port' ? 'info' : 'ok') + '">' + LOCN(r.location || 'Site') + '</span></td><td class="n"><b>' + C.fmtInt(r.qty) + '</b><small class="sub2">' + M(x.price, 2) + ' + ' + M(x.freightRate, 2) + '</small></td><td class="n">' + M(x.amount, 2) + '</td><td class="n">' + M(x.vat, 2) + '</td><td class="n">' + M(x.amount + x.vat, 2) + '</td>' +
-          '<td>' + (r.invoice_no || r.freight_invoice_no ? esc([r.invoice_no, r.freight_invoice_no].filter(Boolean).join(' / ')) : '<span class="pill warn">' + L('بدون فاتورة', 'No invoice') + '</span>') + '</td><td>' + (g ? '<a href="#" class="pill ok" data-gp="' + g.id + '">' + esc(g.grn_no) + '</a>' : '<span class="pill warn">' + L('لم يصدر', 'Pending') + '</span>') + '</td><td><button class="btn sm ghost" data-ed="' + r.id + '">' + L('فتح', 'Open') + '</button></td></tr>';
+        return '<tr><td>' + (g ? '' : '<input type="checkbox" data-gs="' + r.id + '"' + (st.gsel[r.id] ? ' checked' : '') + '>') + '</td><td>' + C.fmtDate(r.date) + '</td><td><span class="pill ' + ((r.location || 'Site') === 'Port' ? 'info' : 'ok') + '">' + LOCN(r.location || 'Site') + '</span></td><td class="n"><b>' + C.fmtInt(r.qty) + '</b><small class="sub2">' + M(x.price, 2) + ' + ' + M(x.freightRate, 2) + '</small></td>' + (x.price ? '<td class="n">' + M(x.amount, 2) + '</td><td class="n">' + M(x.vat, 2) + '</td><td class="n">' + M(x.amount + x.vat, 2) + '</td>' : '<td colspan="3" class="c"><span class="pill bad" title="' + esc(L('مفيش سعر مسجل للمورد في المكان ده بالتاريخ ده — سجّله من «السعر والنولون» أو من الإعدادات ← مراجعة وتصحيح البيانات', 'No price for this supplier at this place and date')) + '">' + L('بدون سعر — سجّل السعر', 'No price — set it') + '</span></td>') +
+          '<td>' + (r.invoice_no || r.freight_invoice_no || r.invoice_file ? '<a href="#" class="inv-cell" data-inv="' + r.id + '">' + esc([r.invoice_no, r.freight_invoice_no].filter(Boolean).join(' / ') || L('فاتورة', 'Invoice')) + (r.invoice_file ? ' 📎' : '') + '</a>' : '<button type="button" class="pill warn inv-add" data-inv="' + r.id + '">' + L('+ أضف الفاتورة', '+ Add invoice') + '</button>') + '</td><td>' + (g ? '<a href="#" class="pill ok" data-gp="' + g.id + '">' + esc(g.grn_no) + '</a>' : '<span class="pill warn">' + L('لم يصدر', 'Pending') + '</span>') + '</td><td><button class="btn sm ghost" data-ed="' + r.id + '">' + L('فتح', 'Open') + '</button></td></tr>';
       }).join('') : '<tr><td colspan="10" class="empty">' + L('لا توجد توريدات في الفترة', 'No deliveries in this range') + '</td></tr>') +
       '</tbody>' + (rows.length ? '<tfoot><tr><td colspan="3">' + L('الإجمالي', 'Total') + '</td><td class="n">' + C.fmtInt(tot.q) + '</td><td class="n">' + M(tot.g + tot.f, 2) + '</td><td class="n">' + M(tot.v, 2) + '</td><td class="n">' + M(tot.g + tot.f + tot.v, 2) + '</td><td colspan="3"></td></tr></tfoot>' : '') + '</table></div>' +
       '<div class="dz-act"><span class="hint" style="margin:0">' + L('علّم توريدة أو أكتر من غير إذن استلام، واعمل لهم GRN واحد بالنولون والضريبة والخصم.', 'Tick one or more deliveries without a GRN and issue one GRN for them, with freight, VAT and withholding.') + '</span><span class="grow"></span><button class="btn" data-gall>' + L('تحديد كل اللي من غير إذن', 'Select all pending') + '</button><button class="btn pri" data-gmk>' + L('إصدار GRN للمحدد', 'Issue GRN for selected') + ' (<span data-gc>' + Object.keys(st.gsel).length + '</span>)</button></div></div>';
@@ -7388,6 +7525,24 @@ var Entry = (function () {
     };
     $$('[data-gp]', z).forEach(function (a) { a.onclick = function (e) { e.preventDefault(); App.openReport('proc', 'grnPrint', { grn: a.dataset.gp }); }; });
     $$('[data-ed]', z).forEach(function (b) { b.onclick = function () { var r = U.ctx().byId('fw_log', b.dataset.ed); U.openForm('fw_log', r, { onSave: redo }); }; });
+    $$('[data-inv]', z).forEach(function (b) { b.onclick = function (e) { e.preventDefault(); invoiceEdit('fw_log', U.ctx().byId('fw_log', b.dataset.inv), redo); }; });
+  }
+  /* add / fix the invoice of one saved record (number(s) + photo) */
+  function invoiceEdit(table, r, done) {
+    if (!r) return;
+    var fw = table === 'fw_log', v = { invoice_no: r.invoice_no || '', freight_invoice_no: r.freight_invoice_no || '', serial_no: r.serial_no || '', invoice_file: r.invoice_file || '' };
+    var body = '<div class="fgrid">' +
+      '<div class="fld"><label>' + (fw ? L('رقم فاتورة السولار', 'Diesel invoice no.') : L('رقم الفاتورة', 'Invoice no.')) + '</label><input data-iv="invoice_no" value="' + esc(v.invoice_no) + '"></div>' +
+      (fw ? '<div class="fld"><label>' + L('رقم فاتورة النولون', 'Freight invoice no.') + '</label><input data-iv="freight_invoice_no" value="' + esc(v.freight_invoice_no) + '"></div>' : '') +
+      '<div class="fld"><label>' + L('صورة / PDF الفاتورة', 'Invoice photo / PDF') + '</label>' + invFile(v.invoice_file, 'ivf') + '</div></div>';
+    var ov = U.modal(L('فاتورة التوريد', 'Delivery invoice') + ' — ' + C.fmtDate(r.date), body, '<button class="btn" data-close>' + L('إلغاء', 'Cancel') + '</button><button class="btn pri" data-ivs>' + L('حفظ', 'Save') + '</button>', { sm: 1 });
+    var root = ov && ov.nodeType ? ov : document.querySelector('.ov:last-of-type') || document;
+    bindInvFile(root, 'ivf', function () { return (fw ? 'Diesel/' : 'Meals/') + String(r.date).slice(0, 7); }, function (url) { v.invoice_file = url; });
+    $('[data-ivs]', root).onclick = function () {
+      $$('[data-iv]', root).forEach(function (x) { v[x.dataset.iv] = x.value.trim(); });
+      var rec = { id: r.id, invoice_no: v.invoice_no, invoice_file: v.invoice_file }; if (fw) rec.freight_invoice_no = v.freight_invoice_no;
+      U.call('api_save', table, rec).then(function (res) { if (!res.ok) { U.toast((res.errors || []).join(' • '), 1); return; } U.upsert(table, res.row); U.rebuild(); U.close(); U.toast(L('تم حفظ الفاتورة ✓', 'Invoice saved ✓')); if (done) done(); }).catch(function (e) { U.toast(U.errMsg(e), 1); });
+    };
   }
   function dieselPrices(z) {
     var S = U.S(), ctx = U.ctx(), it = dieselItem(), can = U.sch('fw_prices').canWrite;
@@ -7400,6 +7555,7 @@ var Entry = (function () {
     }).join('') : '<div class="empty">' + L('لا يوجد سعر مسجل', 'No price yet') + '</div>') + '</div>' +
       (can ? '<h4 style="margin:18px 0 8px">' + L('سعر جديد من تاريخ', 'New price from a date') + '</h4><div class="infobox">' + L('التوريدات القديمة تفضل بسعرها القديم — السعر الجديد يتطبق من التاريخ اللي تكتبه بس.', 'Older deliveries keep their old price — the new price applies only from the date you enter.') + '</div>' +
         '<div class="dz-grid"><div class="fld"><label>' + L('ساري من', 'Effective from') + '</label><input type="date" data-np="effective_from" value="' + S.today + '"></div><div class="fld"><label>' + L('سعر اللتر', 'Price / L') + '</label><input type="number" step="any" data-np="price"></div><div class="fld"><label>' + L('النولون / لتر', 'Freight / L') + '</label><input type="number" step="any" data-np="freight"></div>' +
+        '<div class="fld"><label>' + L('المكان', 'Place') + '</label><select data-np="location"><option value="">' + L('كل الأماكن (نفس السعر)', 'All places (same price)') + '</option><option value="Site">' + LOCN('Site') + '</option><option value="Port">' + LOCN('Port') + '</option></select></div>' +
         '<div class="fld"><label>' + L('المورد', 'Supplier') + '</label><input data-np="supplier" list="np_sup" value="' + esc(defSupplier('fw_log', 'fw')) + '"><datalist id="np_sup">' + sups.filter(Boolean).map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist></div></div><div class="dz-act"><span class="grow"></span><button class="btn pri" data-nps>' + L('حفظ السعر الجديد', 'Save new price') + '</button></div>' : '') + '</div>' +
       '<div class="card"><h3>' + L('سجل الأسعار', 'Price history') + '</h3><div class="tbl-wrap"><table class="t"><thead><tr><th>' + L('ساري من', 'From') + '</th><th>' + L('المورد', 'Supplier') + '</th><th>' + L('المكان', 'Place') + '</th><th class="n">' + L('السعر', 'Price') + '</th><th class="n">' + L('النولون', 'Freight') + '</th></tr></thead><tbody>' +
       rows.map(function (p) { return '<tr><td>' + (p.effective_from ? C.fmtDate(p.effective_from) : '—') + '</td><td>' + esc(p.supplier || L('الكل', 'All')) + '</td><td>' + esc(p.location ? LOCN(p.location) : L('الكل', 'All')) + '</td><td class="n">' + M(p.price, 3) + '</td><td class="n">' + M(p.freight || 0, 3) + '</td></tr>'; }).join('') + '</tbody></table></div>' +
@@ -7414,8 +7570,8 @@ var Entry = (function () {
   function pantry(el, P) {
     P = P || 'pan';
     var S = U.S(), isO = P === 'ofs';
-    var st = el._pn = el._pn || { k: 'mv', date: S.today, cat: '', book: true, cnt: {} };
-    el.innerHTML = '<div class="subtabs"><a href="#" data-pt="mv">' + L('حركة صنف', 'Item movement') + '</a><a href="#" data-pt="inv">' + L('الفواتير وأوامر الشراء', 'Invoices & POs') + '</a><a href="#" data-pt="cnt">' + L('الجرد والاستهلاك', 'Stock count & usage') + '</a></div><div data-pz></div>';
+    var st = el._pn = el._pn || { k: 'stk', date: S.today, cat: '', book: true, cnt: {} };
+    el.innerHTML = '<div class="subtabs"><a href="#" data-pt="stk">' + L('المخزون والأصناف', 'Stock & items') + '</a><a href="#" data-pt="mv">' + L('حركة صنف', 'Item movement') + '</a><a href="#" data-pt="inv">' + L('الفواتير وأوامر الشراء', 'Invoices & POs') + '</a><a href="#" data-pt="cnt">' + L('الجرد والاستهلاك', 'Stock count & usage') + '</a></div><div data-pz></div>';
     var z = $('[data-pz]', el);
     function stockOf(itemId, date) { var r = C.panReport(U.ctx(), { from: date, to: date }, null, P).rows.filter(function (x) { return x.item.id === itemId; })[0]; return r ? r : null; }
     function iname(it) { return U.refLabel(P + '_items', it); }
@@ -7455,6 +7611,25 @@ var Entry = (function () {
       var d = document.createElement('div'); d.id = 'pc-print'; d.dir = document.documentElement.dir || 'rtl'; d.innerHTML = sheetHtml(countModel(st.date), blank); document.body.appendChild(d);
       document.body.classList.add('print-cnt');
       setTimeout(function () { window.print(); setTimeout(function () { document.body.classList.remove('print-cnt'); d.remove(); }, 400); }, 60);
+    }
+    /* every item: what came in, what went out, what is left now, its value, last receipt and the re-order level */
+    function stkView() {
+      var ctx = U.ctx(), rep = C.panReport(ctx, { from: '2000-01-01', to: S.today }, st.cat || null, P), moves = ctx.T(P + '_moves');
+      var cats = []; U.rows(P + '_items').forEach(function (i) { if (i.category && cats.indexOf(i.category) < 0) cats.push(i.category); });
+      var lastRec = function (id) { return moves.filter(function (x) { return x.item_id === id && x.move === 'استلام'; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; })[0]; };
+      var below = rep.rows.filter(function (r) { return r.below; }).length, val = C.sum(rep.rows, function (r) { return r.value; });
+      var inv = U.rows('proc_invoices').filter(function (v) { return (v.section || '') === P; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+      z.innerHTML = '<div class="card"><div class="rng-bar"><div class="fld"><label>' + L('التصنيف', 'Category') + '</label><div class="seg">' + [''].concat(cats).map(function (c) { return '<button type="button" data-sc="' + esc(c) + '" class="' + ((st.cat || '') === c ? 'on' : '') + '">' + esc(c || L('الكل', 'All')) + '</button>'; }).join('') + '</div></div>' +
+        '<span class="grow"></span><button class="btn" data-srep>' + L('📄 تقرير المخزون', '📄 Stock report') + '</button><button class="btn" data-sinv>' + L('🧾 الفواتير', '🧾 Invoices') + '</button></div>' +
+        '<div class="dz-kpis"><div><span>' + L('أصناف', 'Items') + '</span><b>' + rep.rows.length + '</b></div><div><span>' + L('قيمة الرصيد الحالي', 'Stock value now') + '</span><b>' + M(val) + '</b></div><div' + (below ? ' class="warn"' : '') + '><span>' + L('تحت حد الطلب', 'Below re-order level') + '</span><b>' + below + '</b></div>' +
+        '<div><span>' + L('آخر فاتورة', 'Last invoice') + '</span><b>' + (inv[0] ? esc(inv[0].invoice_no) + ' <small>' + C.fmtDate(inv[0].date) + '</small>' : '—') + '</b></div></div>' +
+        (!moves.length ? '<div class="infobox">' + L('لسه مفيش حركة مخزن مسجلة. سجّل الاستلام من «حركة صنف» (أو من فاتورة / أمر شراء في «الفواتير وأوامر الشراء») وبعدين الصرف والجرد — والرصيد هنا بيتحسب لوحده.', 'No stock movement yet. Record receipts in “Item movement” (or from an invoice / PO), then issues and counts — the balance here updates by itself.') + '</div>' : '') +
+        '<div class="tbl-wrap"><table class="t"><thead><tr><th>' + L('الكود', 'Code') + '</th><th>' + L('الصنف', 'Item') + '</th><th>' + L('الوحدة', 'Unit') + '</th><th class="n">' + L('السعر', 'Price') + '</th><th class="n">' + L('وارد', 'In') + '</th><th class="n">' + L('منصرف + هالك', 'Out + waste') + '</th><th class="n">' + L('الرصيد الآن', 'On hand') + '</th><th class="n">' + L('القيمة', 'Value') + '</th><th class="n">' + L('حد الطلب', 'Re-order') + '</th><th>' + L('آخر استلام', 'Last receipt') + '</th></tr></thead><tbody>' +
+        rep.rows.map(function (r) { var lr = lastRec(r.item.id); return '<tr' + (r.below ? ' class="row-warn"' : '') + '><td>' + esc(r.item.code || '') + '</td><td><b>' + esc(r.item.name) + '</b>' + (r.item.category ? '<small class="sub2">' + esc(r.item.category) + '</small>' : '') + '</td><td>' + esc(r.item.unit || '') + '</td><td class="n">' + M(r.price, 2) + '</td><td class="n">' + C.fmtMoney(r.rec) + '</td><td class="n">' + C.fmtMoney(r.iss + r.waste) + '</td><td class="n"><b>' + C.fmtMoney(r.close) + '</b>' + (r.below ? ' <span class="pill warn">' + L('اطلب', 'Order') + '</span>' : '') + '</td><td class="n">' + M(r.value) + '</td><td class="n">' + (C.num(r.item.par_level) || '—') + '</td><td>' + (lr ? C.fmtDate(lr.date) + (lr.invoice_no ? ' <small class="sub2">' + esc(lr.invoice_no) + '</small>' : '') : '—') + '</td></tr>'; }).join('') +
+        '</tbody><tfoot><tr><td colspan="7">' + L('الإجمالي', 'Total') + '</td><td class="n">' + M(val) + '</td><td colspan="2"></td></tr></tfoot></table></div></div>';
+      $$('[data-sc]', z).forEach(function (b) { b.onclick = function () { st.cat = b.dataset.sc; stkView(); }; });
+      $('[data-srep]', z).onclick = function () { App.go({ page: 'sec', sec: P, tab: 'reports' }); };
+      $('[data-sinv]', z).onclick = function () { show('inv'); };
     }
     function invView() {
       var ctx = U.ctx(), secOf = function (r) { return (r.section || '') === P; };
@@ -7514,6 +7689,7 @@ var Entry = (function () {
       st.k = k; $$('[data-pt]', el).forEach(function (a) { a.classList.toggle('on', a.dataset.pt === k); }); z._qf = null;
       if (k === 'inv') return invView();
       if (k === 'cnt') return cntView();
+      if (k === 'stk') return stkView();
       quickForm(z, P + '_moves', {
         title: isO ? 'حركة أدوات مكتبية (استلام / صرف لموظف أو إدارة / هالك)' : 'حركة صنف (استلام / صرف / هالك)', defaults: function () { return { date: S.today, move: 'صرف' }; }, keep: ['date', 'move', 'issued_to', 'department'],
         live: function (rec) {
@@ -7967,7 +8143,7 @@ var Entry = (function () {
   }
 
   function officeSupplies(el) { pantry(el, 'ofs'); }
-  return { ofs: officeSupplies, wtr: water, proc: procurement, veh: vehicles, bus: buses, meal: meals, cln: cleaners, fw: fuelWater, pan: pantry, acc: accommodation, gen: general, dieselPrices: dieselPrices };
+  return { mealDays: mealDays, ofs: officeSupplies, wtr: water, proc: procurement, veh: vehicles, bus: buses, meal: meals, cln: cleaners, fw: fuelWater, pan: pantry, acc: accommodation, gen: general, dieselPrices: dieselPrices };
 })();
 
 /* ============================================================
@@ -8162,8 +8338,27 @@ var Dash = (function () {
   var C = Calc, A = Analytics, I = UX.I, esc = UX.esc;
   var $ = function (s, r) { return (r || document).querySelector(s); }, $$ = function (s, r) { return [].slice.call((r || document).querySelectorAll(s)); };
   var st = { gran: 'month', anchor: null, n: { day: 14, week: 10, month: 6, year: 3 }, secs: null };
-  var GR = [['day', 'يوم', 'Day'], ['week', 'أسبوع', 'Week'], ['month', 'شهر', 'Month'], ['year', 'سنة', 'Year']];
+  var GR = [['day', 'يوم', 'Day'], ['week', 'أسبوع', 'Week'], ['month', 'شهر', 'Month'], ['year', 'سنة', 'Year'], ['range', 'من – إلى', 'Custom']];
 
+
+  /* custom range: from day → to day, with quick picks (this month, last month, last 7 / 30 days, year to date) */
+  function rangeBox(b, p) {
+    return '<div class="f-rng"><input type="date" data-' + p + 'rf="from" value="' + b.from + '"><span>→</span><input type="date" data-' + p + 'rf="to" value="' + b.to + '">' +
+      '<select data-nocombo data-' + p + 'rq><option value="">' + L('اختيار سريع…', 'Quick pick…') + '</option><option value="tm">' + L('الشهر ده', 'This month') + '</option><option value="lm">' + L('الشهر اللي فات', 'Last month') + '</option><option value="7">' + L('آخر 7 أيام', 'Last 7 days') + '</option><option value="30">' + L('آخر 30 يوم', 'Last 30 days') + '</option><option value="cp">' + L('الفترة المحاسبية الحالية', 'Current billing period') + '</option><option value="ytd">' + L('من أول السنة', 'Year to date') + '</option></select></div>';
+  }
+  function bindRange(m, p, set, b, ctx) {
+    var f = $('[data-' + p + 'rf="from"]', m), t = $('[data-' + p + 'rf="to"]', m), q = $('[data-' + p + 'rq]', m);
+    if (!f) return;
+    var go = function () { if (f.value && t.value) set((f.value <= t.value ? f.value : t.value) + '|' + (f.value <= t.value ? t.value : f.value)); };
+    f.onchange = go; t.onchange = go;
+    q.onchange = function () {
+      var d = ctx.today, v = q.value, a, z;
+      if (v === 'tm') { a = C.monthStart(d); z = d; } else if (v === 'lm') { a = C.monthStart(C.addMonths(C.monthStart(d), -1)); z = C.monthEnd(a); }
+      else if (v === '7' || v === '30') { a = C.addDays(d, -(+v - 1)); z = d; } else if (v === 'ytd') { a = d.slice(0, 4) + '-01-01'; z = d; }
+      else if (v === 'cp') { var r = C.periodRange(ctx.currentPeriod('gen'), ctx.cycle('gen')); a = r.from; z = r.to; } else return;
+      set(a + '|' + z);
+    };
+  }
   function money(v) { return Charts.full(Math.round(v || 0)); }
   function bl(b) { return I18N.get() === 'en' ? b.short : b.shortAr; }
   function kpi(o) {
@@ -8207,7 +8402,7 @@ var Dash = (function () {
     var secs = st.secs.filter(function (s) { return all.indexOf(s) >= 0; }); if (!secs.length) secs = all.slice();
     if (!st.anchor || st.anchor.gran !== st.gran) st.anchor = { gran: st.gran, v: st.gran === 'month' ? C.periodShift(ctx.currentPeriod('gen'), -1) : A.defaultAnchor(ctx, st.gran) };
     var gran = st.gran, anchor = st.anchor.v, b = A.bucket(ctx, gran, anchor), pb = A.bucket(ctx, gran, A.shift(ctx, gran, anchor, -1));
-    var daily = gran === 'day' || gran === 'week', used = daily ? secs.filter(A.isDaily) : secs;
+    var daily = A.isDailyGran(gran, b), used = daily ? secs.filter(A.isDaily) : secs;
     var isCur = b.to >= ctx.today && b.from <= ctx.today;
     var mx = A.matrix(ctx, gran, anchor, st.n[gran], used);
     var curBy = used.map(function (s) { return { sec: s, v: A.value(ctx, s, b) || 0, prev: A.value(ctx, s, pb) || 0, series: mx.rows.filter(function (r) { return r.sec === s; })[0].values.map(function (v) { return v || 0; }) }; });
@@ -8231,11 +8426,12 @@ var Dash = (function () {
     /* ---------- header & filters ---------- */
     var h = '<div class="dash">' +
       '<div class="d-print-h"><span class="logo-b"></span><div><b>' + L('لوحة المتابعة التنفيذية — الإدارة', 'Executive Dashboard — Administration') + '</b><span>' + esc(b.label) + ' · ' + esc(ctx.set('site_name', 'Ain Sokhna')) + '</span></div><span class="logo-gs"></span></div>' +
-      pageHead(L('نظرة عامة على الإدارة', 'Administration overview'), L('لوحة المتابعة التنفيذية', 'Executive dashboard'), L('تكلفة الخدمات الإدارية والتشغيل — ', 'Administrative services and operations cost — ') + esc(b.label) + (isCur ? L(' (حتى اليوم)', ' (to date)') : ''),
+      pageHead(L('نظرة عامة على الإدارة', 'Administration overview'), L('لوحة المتابعة التنفيذية', 'Executive dashboard'), L('تكلفة الخدمات الإدارية والتشغيل — ', 'Administrative services and operations cost — ') + '<bdi dir="ltr" style="white-space:nowrap">' + esc(b.label) + '</bdi>' + (isCur ? L(' (حتى اليوم)', ' (to date)') : ''),
         '<button class="btn" data-dcust>' + I.sliders + ' ' + L('تخصيص', 'Customize') + '</button><button class="btn" data-dpresent>' + (window.UI_ICON ? UI_ICON.present : '') + ' ' + L('وضع العرض', 'Present') + '</button><button class="btn" data-dprint>' + I.print + ' ' + L('طباعة', 'Print') + '</button>');
-    h += '<div class="fcard"><div class="f-top"><span class="f-t">' + L('عوامل التصفية', 'Filters') + '</span><span class="f-range">' + esc(b.label) + ' · <span dir="ltr">' + C.fmtDate(b.from) + ' – ' + C.fmtDate(b.to) + '</span></span><span class="grow"></span><span class="f-live"><i></i>' + L('بيانات مباشرة', 'Live data') + ' · ' + L('آخر تحديث ', 'updated ') + new Date().toTimeString().slice(0, 5) + '</span></div>' +
+    h += '<div class="fcard"><div class="f-top"><span class="f-t">' + L('عوامل التصفية', 'Filters') + '</span><span class="f-range">' + (gran === 'range' ? '' : esc(b.label) + ' · ') + '<span dir="ltr">' + C.fmtDate(b.from) + ' – ' + C.fmtDate(b.to) + '</span></span><span class="grow"></span><span class="f-live"><i></i>' + L('بيانات مباشرة', 'Live data') + ' · ' + L('آخر تحديث ', 'updated ') + new Date().toTimeString().slice(0, 5) + '</span></div>' +
       '<div class="f-row"><div class="f-fld">' + L('العرض', 'View') + '<div class="seg">' + GR.map(function (g) { return '<button type="button" data-dg="' + g[0] + '" class="' + (gran === g[0] ? 'on' : '') + '">' + L(g[1], g[2]) + '</button>'; }).join('') + '</div></div>' +
-      '<div class="f-fld">' + L('الفترة', 'Period') + '<div class="stepper"><button type="button" data-dst="-1">‹</button><span><b>' + esc(b.label) + '</b></span><button type="button" data-dst="1"' + (b.to >= ctx.today ? ' disabled' : '') + '>›</button><button type="button" class="now" data-dst="0">' + L('الحالية', 'Current') + '</button></div></div>' +
+      '<div class="f-fld">' + L('الفترة', 'Period') + (gran === 'range' ? rangeBox(b, 'd') :
+        '<div class="stepper"><button type="button" data-dst="-1">‹</button><span><b>' + esc(b.label) + '</b><small dir="ltr">' + C.fmtDate(b.from) + ' → ' + C.fmtDate(b.to) + '</small></span><button type="button" data-dst="1"' + (b.to >= ctx.today ? ' disabled' : '') + '>›</button><button type="button" class="now" data-dst="0">' + L('الحالية', 'Current') + '</button></div>') + '</div>' +
       '<div class="f-fld f-secs">' + L('الأقسام', 'Sections') + '<div class="d-chips">' + (window.SEC_GROUPS || [{ secs: all }]).map(function (g) { var l = g.secs.filter(function (s) { return all.indexOf(s) >= 0; }); return l.length ? '<span class="chip-g">' + (g.ar ? '<em>' + L(g.ar, g.en) + '</em>' : '') + l.map(function (s) { return '<button type="button" data-ds="' + s + '" class="' + (secs.indexOf(s) >= 0 ? 'on' : '') + '" style="--c:' + Charts.color(0, s) + '"><i></i>' + esc(UX.secLabel(s)) + (daily && !A.isDaily(s) ? ' <em class="mo">' + L('شهري', 'monthly') + '</em>' : '') + '</button>'; }).join('') + '</span>' : ''; }).join('') +
       '<button type="button" class="lnk" data-dsall>' + (secs.length === all.length ? L('إلغاء الكل', 'Clear') : L('تحديد الكل', 'Select all')) + '</button></div></div></div></div>';
 
@@ -8298,6 +8494,7 @@ var Dash = (function () {
     var rr = function () { render(m, go); };
     $$('[data-dg]', m).forEach(function (x) { x.onclick = function () { st.gran = x.dataset.dg; st.anchor = null; rr(); }; });
     $$('[data-dst]', m).forEach(function (x) { x.onclick = function () { var d = +x.dataset.dst; st.anchor.v = d === 0 ? A.defaultAnchor(ctx, gran) : A.shift(ctx, gran, anchor, d); rr(); }; });
+    bindRange(m, 'd', function (v) { st.anchor.v = v; rr(); }, b, ctx);
     $$('[data-ds]', m).forEach(function (x) { x.onclick = function () { var s = x.dataset.ds, i = st.secs.indexOf(s); if (i >= 0) st.secs.splice(i, 1); else st.secs.push(s); rr(); }; });
     $('[data-dsall]', m).onclick = function () { st.secs = secs.length === all.length ? [] : all.slice(); rr(); };
     $('[data-dcust]', m).onclick = function () { customize(rr); };
@@ -8334,7 +8531,7 @@ var Dash = (function () {
     $('[data-wsave]', ov).onclick = function () { Prefs.set({ dash: { order: ly.map(function (w) { return w.id; }), hidden: ly.filter(function (w) { return w.hidden; }).map(function (w) { return w.id; }) } }); U.close(ov); done(); U.toast(L('تم حفظ تخطيط اللوحة ✓', 'Dashboard layout saved ✓')); };
     $('[data-wreset]', ov).onclick = function () { Prefs.set({ dash: { order: [], hidden: [] } }); U.close(ov); done(); };
   }
-  var Dash = { render: render };
+  var Dash = { render: render, rangeBox: rangeBox, bindRange: bindRange };
   return Dash;
 })();
 
@@ -8446,7 +8643,7 @@ var Fin = (function () {
   var C = Calc, A = Analytics, I = UX.I, esc = UX.esc;
   var $ = function (s, r) { return (r || document).querySelector(s); }, $$ = function (s, r) { return [].slice.call((r || document).querySelectorAll(s)); };
   var st = { gran: 'month', anchor: null, cmp: 'prev', secs: null, n: { day: 30, week: 12, month: 12, year: 4 } };
-  var GR = [['day', 'يومي', 'Daily'], ['week', 'أسبوعي', 'Weekly'], ['month', 'شهري', 'Monthly'], ['year', 'سنوي', 'Yearly']];
+  var GR = [['day', 'يومي', 'Daily'], ['week', 'أسبوعي', 'Weekly'], ['month', 'شهري', 'Monthly'], ['year', 'سنوي', 'Yearly'], ['range', 'من – إلى', 'Custom']];
 
   function money(v) { return C.fmtMoney(v || 0, 0); }
   function bl(b) { return I18N.get() === 'en' ? b.short : b.shortAr; }
@@ -8459,6 +8656,7 @@ var Fin = (function () {
       '<div class="dk-v">' + o.value + (o.unit ? '<small> ' + o.unit + '</small>' : '') + '</div><div class="dk-b">' + (o.delta || '') + '<span class="dk-s">' + (o.sub || '') + '</span></div>' + (o.extra || '') + '</div>';
   }
   function cmpAnchor(ctx, gran, anchor) {
+    if (st.cmp === 'yoy' && gran === 'range') { var pr = String(anchor).split('|'); return C.addMonths(pr[0], -12) + '|' + C.addMonths(pr[1], -12); }
     if (st.cmp === 'yoy') return gran === 'day' ? C.addDays(anchor, -364) : gran === 'week' ? C.addDays(anchor, -364) : gran === 'year' ? String(+anchor - 1) : C.periodShift(anchor, -12);
     return A.shift(ctx, gran, anchor, -1);
   }
@@ -8470,7 +8668,7 @@ var Fin = (function () {
     var secs = st.secs.filter(function (s) { return all.indexOf(s) >= 0; }); if (!secs.length) secs = all.slice();
     if (!st.anchor || st.anchor.gran !== st.gran) st.anchor = { gran: st.gran, v: A.defaultAnchor(ctx, st.gran) };
     var gran = st.gran, anchor = st.anchor.v, b = A.bucket(ctx, gran, anchor), pb = A.bucket(ctx, gran, cmpAnchor(ctx, gran, anchor));
-    var daily = gran === 'day' || gran === 'week', used = daily ? secs.filter(A.isDaily) : secs, skipped = daily ? secs.filter(function (s) { return !A.isDaily(s); }) : [];
+    var daily = A.isDailyGran(gran, b), used = daily ? secs.filter(A.isDaily) : secs, skipped = daily ? secs.filter(function (s) { return !A.isDaily(s); }) : [];
     var mx = A.matrix(ctx, gran, anchor, st.n[gran], used);
     var tot = A.total(ctx, used, b), ptot = A.total(ctx, used, pb), ch = A.change(tot, ptot);
     var bv = A.budgetVsActual(ctx, b, used);
@@ -8488,7 +8686,7 @@ var Fin = (function () {
         '<button class="btn" data-fbud>' + I.sliders + ' ' + L('الموازنات', 'Budgets') + '</button><button class="btn" data-fx>' + I.xls + ' Excel</button><button class="btn" data-fp>' + I.print + ' ' + L('طباعة / PDF', 'Print / PDF') + '</button>');
     h += '<div class="fcard fin-ctl"><div class="f-row">' +
       '<div class="f-fld">' + L('العرض', 'View') + '<div class="seg">' + GR.map(function (g) { return '<button type="button" data-fg="' + g[0] + '" class="' + (gran === g[0] ? 'on' : '') + '">' + L(g[1], g[2]) + '</button>'; }).join('') + '</div></div>' +
-      '<div class="f-fld">' + L('الفترة', 'Period') + '<div class="stepper"><button type="button" data-fs="-1" aria-label="prev">‹</button><span><b>' + esc(b.label) + '</b><small dir="ltr">' + C.fmtDate(b.from) + ' → ' + C.fmtDate(b.to) + '</small></span><button type="button" data-fs="1" aria-label="next"' + (b.to >= ctx.today ? ' disabled' : '') + '>›</button><button type="button" class="now" data-fs="0">' + L('الحالية', 'Current') + '</button></div></div>' +
+      '<div class="f-fld">' + L('الفترة', 'Period') + (gran === 'range' ? Dash.rangeBox(b, 'f') : '<div class="stepper"><button type="button" data-fs="-1" aria-label="prev">‹</button><span><b>' + esc(b.label) + '</b><small dir="ltr">' + C.fmtDate(b.from) + ' → ' + C.fmtDate(b.to) + '</small></span><button type="button" data-fs="1" aria-label="next"' + (b.to >= ctx.today ? ' disabled' : '') + '>›</button><button type="button" class="now" data-fs="0">' + L('الحالية', 'Current') + '</button></div>') + '</div>' +
       '<div class="f-fld">' + L('المقارنة مع', 'Compare with') + '<div class="seg sm"><button type="button" data-fc="prev" class="' + (st.cmp === 'prev' ? 'on' : '') + '">' + L('الفترة السابقة', 'Previous') + '</button><button type="button" data-fc="yoy" class="' + (st.cmp === 'yoy' ? 'on' : '') + '">' + L('العام الماضي', 'Last year') + '</button></div></div>' +
       '<div class="f-fld f-secs">' + L('الأقسام', 'Sections') + '<div class="d-chips"><span class="chip-g">' + all.map(function (s) { return '<button type="button" data-fsec="' + s + '" class="' + (secs.indexOf(s) >= 0 ? 'on' : '') + '" style="--c:' + Charts.color(0, s) + '"><i></i>' + esc(UX.secLabel(s)) + (daily && !A.isDaily(s) ? ' <em class="mo">' + L('شهري', 'monthly') + '</em>' : '') + '</button>'; }).join('') + '<button type="button" class="lnk" data-fall>' + (secs.length === all.length ? L('إلغاء الكل', 'Clear') : L('الكل', 'All')) + '</button></span></div></div></div>' +
       (skipped.length ? '<div class="infobox fin-note">' + I.clock + '<span>' + L('في العرض اليومي والأسبوعي تظهر البنود المسجَّلة يوميًا فقط. ', 'Daily and weekly views include day-to-day items only. ') + '<b>' + skipped.map(UX.secLabel).join('، ') + '</b>' + L(' تُحاسَب شهريًا — اختر «شهري» أو «سنوي» لرؤيتها.', ' are billed monthly — switch to Monthly or Yearly to include them.') + '</span></div>' : '') + '</div>';
@@ -8524,7 +8722,7 @@ var Fin = (function () {
       Charts.progress({ drill: true, items: bv.rows.filter(function (r) { return r.budget != null || r.actual; }).map(function (r) { return { label: UX.secLabel(r.sec), value: r.actual, budget: r.budget, key: r.sec }; }), noBudget: L('بدون موازنة', 'No budget'), leftLabel: L('متبقي', 'left'), empty: L('لا توجد بيانات', 'No data') }), { act: daily ? '' : '<button class="btn sm" data-fbud>' + L('تعديل', 'Edit') + '</button>' }) +
       card('compare', L('مقارنة الفترات', 'Period comparison'), cmpT, { span: 2, tag: L('اضغط أي خلية للتفاصيل', 'Click any cell for details') });
     /* heat-map + suppliers */
-    var ht = A.heat(ctx, gran === 'day' || gran === 'week' ? to : (b.to < ctx.today ? b.to : ctx.today), 18, used);
+    var ht = A.heat(ctx, daily ? to : (b.to < ctx.today ? b.to : ctx.today), 18, used);
     var DN = en ? ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'] : ['سبت', 'أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة'];
     var sup = A.suppliers(ctx, b.from, b.to, used);
     h += card('heat', L('خريطة الإنفاق اليومي', 'Daily spending map'), Charts.heat({ grid: ht.grid, max: ht.max, dayNames: DN, monthLabel: function (d) { return en ? C.MONTHS[+d.slice(5, 7) - 1] : C.MONTHS_AR[+d.slice(5, 7) - 1]; }, unit: 'EGP', less: L('أقل', 'Less'), more: L('أكثر', 'More') }) + '<div class="hint">' + L('كل مربع يوم — اضغطه لعرض تفاصيل اليوم. تشمل البنود المسجَّلة يوميًا.', 'Each square is a day — click it for that day’s details. Covers day-to-day items.') + '</div>', { span: 2, tag: '18 ' + L('أسبوع', 'weeks') }) +
@@ -8542,6 +8740,7 @@ var Fin = (function () {
     var rr = function () { render(m, go, route); };
     $$('[data-fg]', m).forEach(function (x) { x.onclick = function () { st.gran = x.dataset.fg; st.anchor = null; rr(); }; });
     $$('[data-fs]', m).forEach(function (x) { x.onclick = function () { var d = +x.dataset.fs; st.anchor.v = d === 0 ? A.defaultAnchor(ctx, gran) : A.shift(ctx, gran, anchor, d); rr(); }; });
+    Dash.bindRange(m, 'f', function (v) { st.anchor.v = v; rr(); }, b, ctx);
     $$('[data-fc]', m).forEach(function (x) { x.onclick = function () { st.cmp = x.dataset.fc; rr(); }; });
     $$('[data-fsec]', m).forEach(function (x) { x.onclick = function () { var s = x.dataset.fsec, i = st.secs.indexOf(s); if (i >= 0) st.secs.splice(i, 1); else st.secs.push(s); rr(); }; });
     $('[data-fall]', m).onclick = function () { st.secs = secs.length === all.length ? [] : all.slice(); rr(); };
@@ -10142,7 +10341,7 @@ var Importer = (function () {
     var rd = new FileReader();
     rd.onload = function () {
       try {
-        if (/\.json$/i.test(file.name)) { st.pack = JSON.parse(rd.result); st.zip = null; done(); return; }
+        if (/\.json$/i.test(file.name)) { st.pack = JSON.parse(new TextDecoder('utf-8').decode(rd.result)); st.zip = null; done(); return; }
         var ents = Homes.readZip(rd.result), j = ents.filter(function (e) { return /(^|\/)import\.json$/i.test(e.path); })[0];
         if (!j) { msg.innerHTML = '<div class="warnbox">' + L('الـ ZIP ده مفيهوش import.json — اختار حزمة التحديث.', 'This ZIP has no import.json — choose the update pack.') + '</div>'; return; }
         Homes.inflate(j).then(function (b) { return b.text(); }).then(function (txt) { st.pack = JSON.parse(txt); st.zip = ents; done(); }).catch(function (e) { msg.innerHTML = '<div class="warnbox">' + esc(e.message) + '</div>'; });
@@ -10246,6 +10445,251 @@ var Importer = (function () {
     });
   }
   return { render: render, makePlan: makePlan, st: st };
+})();
+
+/* ============================================================
+   SAFfly Admin — data review & repair
+   Finds duplicated masters (e.g. the same bus under two names),
+   duplicated daily records, deliveries with no price and old names,
+   and proposes a fix. Nothing is deleted: a duplicate is cancelled
+   with a written reason and stays in the sheet; references are moved
+   to the record that is kept. Every fix is listed and needs a tick.
+   ============================================================ */
+var Review = (function () {
+  'use strict';
+  var C = Calc, esc = U.esc, $ = U.$, $$ = U.$$;
+  var st = { issues: null, busy: false, log: [], pick: {} };
+
+  /* the same thing under an old and a new name (old → kept) */
+  var ALIAS = {
+    bus_buses: { 'Bus 1': 'Stella Bus 1', 'Bus 2': 'Stella Bus 2', 'Bus 3': 'Stella Bus 3 — Sea Owl', 'Bus 4': 'Cairo Bus' }
+  };
+  /* natural keys: two active rows with the same key are the same record */
+  var KEYS = {
+    bus_buses: ['name'], veh_vehicles: ['name'], meal_types: ['name'], meal_locations: ['name'], cln_workers: ['code'], car_drivers: ['name'],
+    fw_cars: ['plate'], fw_items: ['name'], wtr_items: ['name'], pan_items: ['code'], ofs_items: ['code'], acc_units: ['name'], acc_people: ['display_name'],
+    bus_terms: ['bus_id', 'effective_from'], bus_log: ['bus_id', 'date'], veh_terms: ['vehicle_id', 'effective_from'], veh_log: ['vehicle_id', 'date'],
+    veh_approvals: ['vehicle_id', 'period'], meal_prices: ['type_id', 'effective_from'], meal_log: ['date', 'location_id', 'type_id'],
+    cln_rates: ['worker_id', 'effective_from'], cln_log: ['worker_id', 'date'], fw_prices: ['item_id', 'supplier', 'location', 'effective_from'],
+    wtr_prices: ['item_id', 'supplier', 'location', 'effective_from'], pan_prices: ['item_id', 'effective_from'],
+    proc_invoices: ['supplier', 'invoice_no'], proc_invoice_lines: ['invoice_id', 'line_no'], proc_po_lines: ['po_id', 'line_no'], proc_grn_lines: ['grn_id', 'line_no'],
+    fw_log: ['date', 'location', 'qty', 'supplier', 'item_id'], fw_refuels: ['car_id', 'date', 'amount_paid'], proc_payments: ['supplier', 'date', 'amount'],
+    acc_contracts: ['contract_key', 'start'], acc_payments: ['unit_id', 'date', 'category', 'amount']
+  };
+  var MASTERS = ['bus_buses', 'veh_vehicles', 'meal_types', 'meal_locations', 'cln_workers', 'car_drivers', 'fw_cars', 'fw_items', 'wtr_items', 'pan_items', 'ofs_items', 'acc_units', 'acc_people'];
+  /* real life can repeat these (two deliveries of the same size on one day…): listed, not ticked */
+  var LOOSE = ['bus_log', 'veh_log', 'meal_log', 'cln_log', 'fw_log', 'fw_refuels', 'proc_payments', 'acc_payments'];
+
+  function norm(v) { if (v === null || v === undefined) return ''; var s = String(v).trim(); return /^-?\d+(\.\d+)?$/.test(s) ? String(Number(s)) : s.toLowerCase(); }
+  function keyOf(t, r, over) { return (KEYS[t] || ['id']).map(function (k) { return norm(over && k in over ? over[k] : r[k]); }).join('|'); }
+  /* full content: two rows are copies only if every business field is the same (two real trips on one day stay two) */
+  var SKIPF = { id: 1, status: 1, cancel_reason: 1, created_at: 1, created_by: 1, updated_at: 1, updated_by: 1, photo_thumb: 1, cover_ts: 1, invoice_id: 1, grn_id: 1 };
+  function sigOf(t, r, over) { return ((U.sch(t) || {}).fields || []).filter(function (f) { return !SKIPF[f.k] && !f.sys; }).map(function (f) { return norm(over && f.k in over ? over[f.k] : r[f.k]); }).join('|'); }
+  function title(t) { var s = U.sch(t); return s ? s.title : t; }
+  function label(t, r) { try { return U.refLabel(t, r) || r.id; } catch (e) { return r.id; } }
+  function stamp(r) { return String(r.updated_at || r.created_at || ''); }
+  function human(r) { return !!r.updated_at || (r.created_by && r.created_by !== 'migration'); }
+  function linked(r) { return !!(r.invoice_id || r.grn_id || r.file_url || r.invoice_file); }
+  /* which of two copies to keep: linked to an invoice / edited by a person / already on the kept master / newest */
+  function better(a, b, onTarget) {
+    var sa = [linked(a) ? 1 : 0, a.updated_at ? 1 : 0, onTarget && onTarget(a) ? 1 : 0, stamp(a)], sb = [linked(b) ? 1 : 0, b.updated_at ? 1 : 0, onTarget && onTarget(b) ? 1 : 0, stamp(b)];
+    for (var i = 0; i < sa.length; i++) { if (sa[i] > sb[i]) return a; if (sa[i] < sb[i]) return b; }
+    return a;
+  }
+  function refsTo(t) { // [{table, field}] that point at master t
+    var out = [], S = U.S();
+    Object.keys(S.schema).forEach(function (t2) { (S.schema[t2].fields || []).forEach(function (f) { if (f.t === 'ref' && f.ref === t) out.push({ t: t2, k: f.k }); }); });
+    return out;
+  }
+
+  /* ---------- plan one merge: master `from` into master `to` ---------- */
+  function planMerge(t, from, to, why) {
+    var ops = [], moved = 0, dup = 0, value = 0, ctx = U.ctx();
+    refsTo(t).forEach(function (rf) {
+      var rows = U.rows(rf.t), mine = rows.filter(function (r) { return r[rf.k] === from.id; });
+      if (!mine.length) return;
+      var cancels = [], saves = [], used = {}, pairedOld = {};
+      mine.forEach(function (r) {
+        var over = {}; over[rf.k] = to.id;
+        var k = sigOf(rf.t, r, over), nk = KEYS[rf.t] ? keyOf(rf.t, r, over) : null;
+        var cand = rows.filter(function (x) { return x.id !== r.id && x[rf.k] === to.id && !used[x.id]; });
+        // a copy = the same content on the kept master; failing that, the same day/key once both copies have the same number of rows that day
+        var twin = cand.filter(function (x) { return sigOf(rf.t, x) === k; })[0];
+        if (!twin && nk) {
+          var oldSame = mine.filter(function (x) { return keyOf(rf.t, x, over) === nk && !pairedOld[x.id]; }), newSame = cand.filter(function (x) { return keyOf(rf.t, x) === nk; });
+          if (newSame.length && newSame.length >= oldSame.length) twin = newSame[0];
+        }
+        if (twin) { used[twin.id] = 1; pairedOld[r.id] = 1; }
+        if (twin) {
+          var keep = better(r, twin, function (x) { return x[rf.k] === to.id; });
+          var drop = keep === r ? twin : r;
+          cancels.push({ id: drop.id, reason: 'مكرر — نفس السجل ' + keep.id + ' بعد دمج «' + label(t, from) + '» في «' + label(t, to) + '»' });
+          if (keep === r) saves.push({ id: r.id, k: rf.k, v: to.id });
+          dup++;
+          if (rf.t === 'bus_log') value += C.busRow(ctx, drop).cost;
+        } else { saves.push({ id: r.id, k: rf.k, v: to.id }); moved++; }
+      });
+      if (cancels.length) ops.push({ kind: 'cancel', t: rf.t, list: cancels });
+      if (saves.length) ops.push({ kind: 'set', t: rf.t, list: saves });
+    });
+    ops.push({ kind: 'cancel', t: t, list: [{ id: from.id, reason: 'مدمج في «' + label(t, to) + '» (' + to.id + ')' + (why ? ' — ' + why : '') }] });
+    return { ops: ops, moved: moved, dup: dup, value: value };
+  }
+
+  /* ---------- scan ---------- */
+  function scan() {
+    var S = U.S(), ctx = U.ctx(), issues = [], merging = {};
+    // 1) the same master under an old and a new name, or twice with the same name
+    MASTERS.forEach(function (t) {
+      if (!S.schema[t]) return;
+      var rows = U.rows(t), al = ALIAS[t] || {};
+      Object.keys(al).forEach(function (old) {
+        var a = rows.filter(function (r) { return norm(r.name) === norm(old); })[0], b = rows.filter(function (r) { return norm(r.name) === norm(al[old]); })[0];
+        if (a && b) { var p = planMerge(t, a, b, 'نفس ' + (t === 'bus_buses' ? 'الباص' : 'السجل') + ' باسم قديم'); merging[a.id] = 1; issues.push({ id: 'm:' + a.id, on: true, sev: 'high', sec: S.schema[t].sec, title: title(t) + ': «' + old + '» هو نفسه «' + al[old] + '»', what: mergeText(t, p), plan: p }); }
+      });
+      var g = {}; rows.forEach(function (r) { if (merging[r.id]) return; var k = keyOf(t, r); if (k.replace(/\|/g, '')) (g[k] = g[k] || []).push(r); });
+      Object.keys(g).forEach(function (k) {
+        if (g[k].length < 2) return;
+        var keep = g[k].reduce(function (a, b) { return better(a, b); });
+        g[k].filter(function (r) { return r !== keep; }).forEach(function (r) { var p = planMerge(t, r, keep, 'نفس الاسم'); merging[r.id] = 1; issues.push({ id: 'm:' + r.id, on: true, sev: 'high', sec: S.schema[t].sec, title: title(t) + ': «' + label(t, r) + '» مسجّل مرتين', what: mergeText(t, p), plan: p }); });
+      });
+    });
+    // 2) the same daily record twice
+    Object.keys(KEYS).forEach(function (t) {
+      if (MASTERS.indexOf(t) >= 0 || !S.schema[t]) return;
+      var refs = (S.schema[t].fields || []).filter(function (f) { return f.t === 'ref'; });
+      var g = {};
+      U.rows(t).forEach(function (r) { if (refs.some(function (f) { return merging[r[f.k]]; })) return; var k = sigOf(t, r); (g[k] = g[k] || []).push(r); });
+      var groups = Object.keys(g).filter(function (k) { return g[k].length > 1; }).map(function (k) { return g[k]; });
+      if (!groups.length) return;
+      var cancels = [], value = 0, sample = [];
+      groups.forEach(function (list) {
+        var keep = list.reduce(function (a, b) { return better(a, b); });
+        list.forEach(function (r) {
+          if (r === keep) return;
+          cancels.push({ id: r.id, reason: 'مكرر — نفس السجل ' + keep.id });
+          value += valueOf(ctx, t, r);
+          if (sample.length < 6) sample.push(rowText(t, r));
+        });
+      });
+      var loose = LOOSE.indexOf(t) >= 0;
+      issues.push({ id: 'd:' + t, on: !loose, sev: loose ? 'mid' : 'high', sec: S.schema[t].sec, title: title(t) + ': ' + cancels.length + (loose ? ' سطر متطابق — للمراجعة' : ' سجل مكرر'),
+        what: (loose ? '<p class="rv-note">سطور متطابقة في كل حاجة — ممكن تكون صح (مثلاً رحلتين أو توريدين بنفس البيانات في نفس اليوم). مش متعلّم عليها: راجعها وعلّم بس لو متأكد إنها مكررة.</p>' : '') +
+          (value ? '<p>القيمة المحسوبة زيادة بسبب التكرار: <b>' + C.fmtMoney(value, 2) + '</b> ج</p>' : '') +
+          '<ul class="rv-list">' + sample.map(function (x) { return '<li>' + x + '</li>'; }).join('') + (cancels.length > sample.length ? '<li>… و' + (cancels.length - sample.length) + ' غيرهم</li>' : '') + '</ul>' +
+          '<p class="rv-note">المكرر يتلغى بسبب مكتوب ويفضل موجود في الشيت (مفيش مسح).</p>',
+        plan: { ops: [{ kind: 'cancel', t: t, list: cancels }] } });
+    });
+    // 3) diesel deliveries with no price for their place
+    if (S.schema.fw_log && S.schema.fw_prices) {
+      var miss = {};
+      U.rows('fw_log').forEach(function (r) {
+        if (C.isNum(r.price_override) && r.price_override !== '') return;
+        var x = C.fwRow(ctx, r); if (x.price) return;
+        var k = (r.supplier || '') + '|' + (r.location || 'Site') + '|' + r.item_id;
+        (miss[k] = miss[k] || { supplier: r.supplier || '', location: r.location || 'Site', item_id: r.item_id, rows: [], qty: 0 }).rows.push(r); miss[k].qty += C.num(r.qty);
+      });
+      Object.keys(miss).forEach(function (k) {
+        var m = miss[k], src = U.rows('fw_prices').filter(function (p) { return p.item_id === m.item_id && p.supplier === m.supplier && p.location && p.location !== m.location; });
+        var it = ctx.byId('fw_items', m.item_id);
+        var news = src.map(function (p) { return { item_id: p.item_id, supplier: p.supplier, price: p.price, freight: p.freight, location: m.location, effective_from: p.effective_from }; })
+          .filter(function (n) { return !U.rows('fw_prices').some(function (p) { return keyOf('fw_prices', p) === keyOf('fw_prices', n); }); });
+        issues.push({ id: 'p:' + k, on: !!news.length, sev: 'high', sec: 'fw', canFix: !!news.length,
+          title: (it ? String(it.name).split(' — ')[0] : 'السولار') + ' — ' + m.rows.length + ' توريد في «' + m.location + '» بدون سعر (' + C.fmtInt(m.qty) + ' لتر)',
+          what: '<p>المورد: <b>' + esc(m.supplier || '—') + '</b>. التوريدات دي صافيها ظاهر 0 لأن مفيش سعر مسجل للمكان ده.</p>' +
+            (news.length ? '<p>المقترح: نفس سعر ونولون المورد في المكان التاني (من شيت السولار: الموقع والميناء بنفس السعر):</p><table class="rv-t"><tr><th>ساري من</th><th>المكان</th><th>سعر اللتر</th><th>النولون</th></tr>' +
+              news.map(function (n) { return '<tr><td>' + (n.effective_from ? C.fmtDate(n.effective_from) : 'من البداية') + '</td><td>' + esc(n.location) + '</td><td>' + n.price + '</td><td>' + (n.freight || 0) + '</td></tr>'; }).join('') + '</table>' +
+              '<p class="rv-note">لو السعر مختلف فعلًا سيبها من غير علامة وسجّل السعر الصح من «السولار ← السعر والنولون».</p>'
+              : '<p class="rv-note">مفيش سعر للمورد ده في مكان تاني ينفع ننسخه — سجّل السعر من «السولار ← السعر والنولون».</p>'),
+          plan: { ops: news.length ? [{ kind: 'add', t: 'fw_prices', list: news }] : [] } });
+      });
+    }
+    // 4) old meal name: Sandwich → light meal
+    if (S.schema.meal_types) {
+      var snack = U.rows('meal_types').filter(function (r) { return /^(sandwich|sandwiches|ساندوتش|سندوتش)$/i.test(String(r.name).trim()) || r.group === 'ساندوتش'; });
+      if (snack.length) {
+        var ops = [], lists = U.rows('core_lists');
+        if (!lists.some(function (l) { return l.list === 'meal_groups' && l.value === 'وجبة خفيفة'; })) ops.push({ kind: 'add', t: 'core_lists', list: [{ list: 'meal_groups', value: 'وجبة خفيفة', sort: 2 }] });
+        ops.push({ kind: 'set', t: 'meal_types', list: snack.map(function (r) { return { id: r.id, rec: { name: /^(sandwich|sandwiches|ساندوتش|سندوتش)$/i.test(String(r.name).trim()) ? 'وجبة خفيفة' : r.name, group: 'وجبة خفيفة' } }; }) });
+        var oldL = lists.filter(function (l) { return l.list === 'meal_groups' && l.value === 'ساندوتش'; });
+        if (oldL.length) ops.push({ kind: 'cancel', t: 'core_lists', list: oldL.map(function (l) { return { id: l.id, reason: 'اتغير الاسم إلى «وجبة خفيفة»' }; }) });
+        issues.push({ id: 'n:snack', on: true, sev: 'low', sec: 'meal', title: 'الوجبات: «' + snack.map(function (r) { return r.name; }).join('، ') + '» ← «وجبة خفيفة»',
+          what: '<p>تغيير الاسم بس — العدد والأسعار والسجلات زي ما هي.</p>', plan: { ops: ops } });
+      }
+    }
+    return issues;
+  }
+  function valueOf(ctx, t, r) {
+    try {
+      if (t === 'bus_log') return C.busRow(ctx, r).cost;
+      if (t === 'meal_log') return C.num(r.qty) * C.mealPrice(ctx, r.type_id, r.date);
+      if (t === 'fw_log') return C.fwRow(ctx, r).payable;
+    } catch (e) { }
+    return 0;
+  }
+  function rowText(t, r) {
+    var f = (U.sch(t).fields || []).slice(0, 4);
+    return esc(f.map(function (x) { var v = r[x.k]; if (x.t === 'ref' && v) { var o = U.ctx().byId(x.ref, v); return o ? label(x.ref, o) : v; } if (x.t === 'date') return C.fmtDate(v); return v; }).filter(function (v) { return v !== '' && v !== undefined; }).join(' · ')) + ' <small>(' + r.id + ')</small>';
+  }
+  function mergeText(t, p) {
+    var by = {}; p.ops.forEach(function (o) { if (o.t === t) return; by[o.t] = by[o.t] || { set: 0, cancel: 0 }; by[o.t][o.kind] += o.list.length; });
+    return '<ul class="rv-list">' + Object.keys(by).map(function (x) { return '<li>' + esc(title(x)) + ': ' + (by[x].set ? by[x].set + ' سجل يتنقل للاسم الصح' : '') + (by[x].set && by[x].cancel ? ' • ' : '') + (by[x].cancel ? '<b>' + by[x].cancel + ' سجل مكرر يتلغى</b>' : '') + '</li>'; }).join('') +
+      '<li>الاسم القديم نفسه يتلغى بسبب «مدمج في …» ويفضل في الشيت.</li></ul>' +
+      (p.value ? '<p>قيمة الرحلات المحسوبة مرتين: <b>' + C.fmtMoney(p.value, 2) + '</b> ج — هتتشال من الإجمالي.</p>' : '');
+  }
+
+  /* ---------- run ---------- */
+  function chunk(a, n) { var o = []; for (var i = 0; i < a.length; i += n) o.push(a.slice(i, i + n)); return o; }
+  function runOp(op) {
+    var parts = chunk(op.list, 80);
+    return parts.reduce(function (p, part) {
+      return p.then(function () {
+        var saves = [], cancels = [];
+        if (op.kind === 'cancel') cancels = part;
+        else if (op.kind === 'add') saves = part.map(function (x) { return Object.assign({}, x); });
+        else saves = part.map(function (x) { if (x.rec) return Object.assign({ id: x.id }, x.rec); var o = { id: x.id }; o[x.k] = x.v; return o; });
+        return U.call('api_saveBatch', op.t, saves, cancels).then(function (res) {
+          (res.rows || []).forEach(function (r) { U.upsert(op.t, r); });
+          (res.cancelled || []).forEach(function (r) { U.upsert(op.t, r); });
+          if (!res.ok) throw new Error(title(op.t) + ': ' + (res.batchErrors || []).map(function (b) { return (b.errors || []).join('، '); }).join(' • '));
+          st.log.push('✓ ' + title(op.t) + ': ' + (op.kind === 'cancel' ? 'إلغاء ' : op.kind === 'add' ? 'إضافة ' : 'تعديل ') + part.length);
+        });
+      });
+    }, Promise.resolve());
+  }
+  function run(z) {
+    var chosen = (st.issues || []).filter(function (i) { return st.pick[i.id] && i.plan.ops.length; });
+    if (!chosen.length) { U.toast('علّم على اللي عايز تصححه', 1); return; }
+    var n = 0; chosen.forEach(function (i) { i.plan.ops.forEach(function (o) { n += o.list.length; }); });
+    U.confirmBox('هيتنفذ ' + chosen.length + ' تصحيح (' + n + ' سجل). مفيش مسح — المكرر بيتلغى بسبب ويفضل في الشيت، وكل تعديل بيتسجل في «سجل التعديلات». نكمّل؟', 'تنفيذ').then(function (ok) {
+      if (!ok) return;
+      st.busy = true; st.log = []; draw(z);
+      chosen.reduce(function (p, i) { return p.then(function () { st.log.push('— ' + i.title); paintLog(z); return i.plan.ops.reduce(function (q, o) { return q.then(function () { return runOp(o).then(function () { paintLog(z); }); }); }, Promise.resolve()); }); }, Promise.resolve())
+        .then(function () { st.log.push('تم ✓'); U.rebuild(); U.toast('تم التصحيح ✓'); })
+        .catch(function (e) { st.log.push('✗ ' + U.errMsg(e)); U.toast(U.errMsg(e), 1); U.rebuild(); })
+        .then(function () { st.busy = false; st.issues = scan(); st.pick = {}; st.issues.forEach(function (i) { st.pick[i.id] = i.on; }); draw(z); });
+    });
+  }
+  function paintLog(z) { var b = $('[data-rvlog]', z); if (b) { b.innerHTML = st.log.map(esc).join('<br>'); b.scrollTop = 1e6; } }
+
+  /* ---------- screen ---------- */
+  function draw(z) {
+    var I = st.issues, sevT = { high: 'مهم', mid: 'راجع', low: 'تحسين' };
+    z.innerHTML = '<div class="card rv"><div class="rv-h"><div><h3>مراجعة وتصحيح البيانات</h3><p>بيدوّر على التكرار (زي نفس الباص باسمين)، والتوريدات اللي ملهاش سعر، والأسماء القديمة — ويقترح التصحيح. <b>مفيش حاجة بتتمسح</b>: المكرر بيتلغى بسبب مكتوب ويفضل في الشيت، والسجلات بتتنقل للاسم الصح.</p></div>' +
+      '<button class="btn" data-rvscan' + (st.busy ? ' disabled' : '') + '>' + (I ? 'افحص تاني' : 'افحص البيانات') + '</button></div>' +
+      (!I ? '' : !I.length ? '<div class="infobox">مفيش مشاكل ✓ — كل البيانات متسقة.</div>' :
+        '<div class="rv-items">' + I.map(function (i) {
+          return '<label class="rv-i ' + i.sev + '"><input type="checkbox" data-rvp="' + esc(i.id) + '"' + (st.pick[i.id] ? ' checked' : '') + (i.plan.ops.length && !st.busy ? '' : ' disabled') + '>' +
+            '<div><div class="rv-t1"><span class="rv-sev">' + sevT[i.sev] + '</span><b>' + esc(i.title) + '</b><span class="rv-sec">' + esc(UX.secLabel ? UX.secLabel(i.sec) : i.sec) + '</span></div>' + i.what + '</div></label>';
+        }).join('') + '</div>' +
+        '<div class="bar"><span class="grow"></span><button class="btn pri" data-rvrun' + (st.busy ? ' disabled' : '') + '>' + (st.busy ? 'جاري التنفيذ…' : 'نفّذ المحدد') + '</button></div>') +
+      (st.log.length ? '<div class="rv-log" data-rvlog>' + st.log.map(esc).join('<br>') + '</div>' : '') + '</div>';
+    var sb = $('[data-rvscan]', z); if (sb) sb.onclick = function () { st.issues = scan(); st.pick = {}; st.issues.forEach(function (i) { st.pick[i.id] = i.on; }); st.log = []; draw(z); };
+    $$('[data-rvp]', z).forEach(function (c) { c.onchange = function () { st.pick[c.dataset.rvp] = c.checked; }; });
+    var rb = $('[data-rvrun]', z); if (rb) rb.onclick = function () { run(z); };
+  }
+  function render(z) { draw(z); }
+  return { render: render, scan: scan, planMerge: planMerge };
 })();
 
 /* ============================================================
@@ -10487,6 +10931,12 @@ var App = (function () {
       fw_prices: 'يمكن تحديد السعر لمورد بعينه، وفي حال عدم وجود سعر للمورد يُطبَّق السعر العام للصنف.'
     };
     $('#st-hint', z).innerHTML = hints[cur] ? '<div class="infobox">' + esc(hints[cur]) + '</div>' : '';
+    if (cur === 'meal_log' && window.Entry && Entry.mealDays) {
+      var mode = route.mealView || 'days';
+      $('#st-hint', z).innerHTML = '<div class="seg sm" style="margin-bottom:10px"><button type="button" data-mv="days" class="' + (mode === 'days' ? 'on' : '') + '">' + L('حسب اليوم', 'By day') + '</button><button type="button" data-mv="rows" class="' + (mode === 'rows' ? 'on' : '') + '">' + L('كل السطور', 'All lines') + '</button></div>';
+      $$('[data-mv]', z).forEach(function (b) { b.onclick = function () { route.mealView = b.dataset.mv; subTables(z, tables, o); }; });
+      if (mode === 'days') { Entry.mealDays($('#st-list', z)); return; }
+    }
     U.listView($('#st-list', z), cur, lo);
   }
 
@@ -10639,7 +11089,7 @@ var App = (function () {
   }
   function settings(m) {
     var S = U.S();
-    var tabs = [['gen', 'الإعدادات'], ['users', 'المستخدمين'], ['lists', 'القوائم المنسدلة'], ['taxes', 'الضرائب'], ['sup', 'الموردين'], ['backup', 'النسخ الاحتياطي'], ['import', 'استيراد / تحديث البيانات'], ['health', 'فحص البيانات'], ['audit', 'سجل التعديلات']];
+    var tabs = [['gen', 'الإعدادات'], ['users', 'المستخدمين'], ['lists', 'القوائم المنسدلة'], ['taxes', 'الضرائب'], ['sup', 'الموردين'], ['backup', 'النسخ الاحتياطي'], ['import', 'استيراد / تحديث البيانات'], ['health', 'مراجعة وتصحيح البيانات'], ['audit', 'سجل التعديلات']];
     if (!(S.user && S.user.canAudit)) tabs = tabs.filter(function (t) { return t[0] !== 'audit'; });
     var tab = route.tab && tabs.some(function (t) { return t[0] === route.tab; }) ? route.tab : 'gen';
     $('#cur-chip').textContent = '';
@@ -10683,7 +11133,8 @@ var App = (function () {
     } else if (tab === 'taxes') { z.innerHTML = '<div class="infobox">لا توجد نسب ضريبية مسجلة مسبقًا — أضف الضرائب المطبقة فعليًا على كل قسم مع تاريخ سريانها.</div><div id="tl"></div>'; U.listView($('#tl', z), 'core_taxes', {}); }
     else if (tab === 'sup') { z.innerHTML = '<div id="sl"></div>'; U.listView($('#sl', z), 'core_suppliers', {}); }
     else if (tab === 'health') {
-      z.innerHTML = '<div class="card"><h3>فحص البيانات</h3><div id="hz" class="empty">جارٍ الفحص…</div></div>';
+      z.innerHTML = '<div data-review></div><div class="card"><h3>فحص الجداول</h3><div id="hz" class="empty">جارٍ الفحص…</div></div>';
+      if (window.Review) Review.render($('[data-review]', z));
       U.call('api_health').then(function (h) { $('#hz', z).className = ''; $('#hz', z).innerHTML = (h.ok ? '<div class="infobox">جميع الجداول سليمة ✓</div>' : '<div class="warnbox">' + h.issues.map(esc).join('<br>') + '</div>') + '<div class="tbl-wrap"><table class="t"><thead><tr><th>الجدول</th><th class="n">عدد السطور</th></tr></thead><tbody>' + Object.keys(h.counts).map(function (t) { return '<tr><td>' + esc((S.schema[t] || {}).title || t) + ' <span class="pill">' + t + '</span></td><td class="n">' + h.counts[t] + '</td></tr>'; }).join('') + '</tbody></table></div>'; }).catch(function (e) { $('#hz', z).textContent = U.errMsg(e); });
     } else if (tab === 'audit') {
       z.innerHTML = '<div class="bar"><select class="inp" style="max-width:240px" data-af><option value="">كل الجداول</option>' + Object.keys(S.schema).map(function (t) { return '<option value="' + t + '">' + esc(S.schema[t].title) + '</option>'; }).join('') + '</select></div><div id="az" class="empty">جارٍ التحميل…</div>';
