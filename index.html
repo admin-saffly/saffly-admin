@@ -2730,13 +2730,23 @@ html[data-motion="off"] .dkpi.hero::before,html[data-motion="off"] .dl-ar{animat
 .rt-run{padding:12px 14px;margin:0}.rt-rh{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.rt-rh span{color:var(--grey);font-size:12px;font-weight:700}
 .rt-ol{margin:8px 0;padding-inline-start:20px;font-size:13px;line-height:1.7}.rt-ol small{color:var(--grey)}.rt-ol .rt-end{list-style:'🏁 ';font-weight:700}
 @media (max-width:900px){.rt-grid{grid-template-columns:1fr}#rt-map{height:380px}}
+/* screens fit without sideways scrolling */
+.tabs{flex-wrap:wrap;overflow-x:visible}
+.tabs a{height:38px;padding:0 14px}
+.t .cx-hide{display:none}
+.lv-cols{margin:0 0 8px}
+.tbl-wrap .t td{white-space:normal;overflow-wrap:anywhere}
+.tbl-wrap .t td.n,.tbl-wrap .t td.c,.tbl-wrap .t th{white-space:nowrap}
+@media (max-width:700px){.tabs{flex-wrap:nowrap;overflow-x:auto}}
 
 /* ============ Report pages (A4) — same look as the Excel statements ============ */
 .rp{width:210mm;min-height:297mm;background:#fff;margin:0 auto 16px;padding:10mm 9mm;box-shadow:0 2px 10px rgba(0,0,0,.08);
   font-family:"SAF Sans",Calibri,"Segoe UI",Carlito,Arial,sans-serif;color:#2F3B45;font-size:8.2pt;direction:ltr;text-align:left;line-height:1.35;position:relative}
 .rp.ar{direction:rtl;text-align:right;font-family:"SAF Sans","Segoe UI",Tahoma,Arial,sans-serif;font-size:8.5pt}
+.rp{page:rpp}
 .rp.land{width:297mm;min-height:210mm;page:land}
-@page land{size:A4 landscape;margin:8mm}
+@page land{size:A4 landscape;margin:0}
+@page rpp{size:A4 portrait;margin:0}
 .rp .rh{display:flex;justify-content:space-between;color:#8A96A3;font-size:7.5pt;letter-spacing:.3px}
 .rp .rtl2{display:flex;justify-content:space-between;align-items:flex-end;margin:3px 0 2px;gap:10px}
 .rp .rtitle{font-size:17pt;font-weight:700;color:#1E2B40;line-height:1.15}
@@ -2918,10 +2928,18 @@ html[dir=rtl] .rp.grn .grn-tot{margin:8px auto 0 0}
 .rp.sf .sf-sign td i{display:block;border-bottom:1px solid #222;margin-top:6mm;width:70%}
 .rp.sf .sf-foot{margin-top:6mm;padding-top:2mm;border-top:1px solid #999;font-size:7pt;color:#444;text-align:center}
 /* page setup (report bar ← Page setup): paper and orientation chosen by the user */
-.rp.ps-a4p{width:210mm;min-height:297mm;page:a4p}@page a4p{size:A4 portrait;margin:8mm}
-.rp.ps-a4l{width:297mm;min-height:210mm;page:a4l}@page a4l{size:A4 landscape;margin:8mm}
-.rp.ps-a3p{width:297mm;min-height:420mm;page:a3p}@page a3p{size:A3 portrait;margin:10mm}
-.rp.ps-a3l{width:420mm;min-height:297mm;page:a3l}@page a3l{size:A3 landscape;margin:10mm}
+.rp.ps-a4p{width:210mm;min-height:297mm;page:a4p}@page a4p{size:A4 portrait;margin:0}
+.rp.ps-a4l{width:297mm;min-height:210mm;page:a4l}@page a4l{size:A4 landscape;margin:0}
+.rp.ps-a3p{width:297mm;min-height:420mm;page:a3p}@page a3p{size:A3 portrait;margin:0}
+.rp.ps-a3l{width:420mm;min-height:297mm;page:a3l}@page a3l{size:A3 landscape;margin:0}
+
+/* print / PDF: every report page is exactly one sheet (the page carries its own margins);
+   a page that runs a little long is fitted to its sheet before printing; long statements continue on the next sheet with the same margins */
+@media print{
+  .rp{min-height:0!important;break-after:page;page-break-after:always;-webkit-box-decoration-break:clone;box-decoration-break:clone;overflow:visible}
+  .rp:last-child{break-after:auto;page-break-after:auto}
+  .rp.pf-fit{overflow:hidden;min-height:0!important;break-inside:avoid}
+}
 
 /* ============ Operations & Administration Report — 16:9 slides ============ */
 @page ops{size:13.333in 7.5in;margin:0}
@@ -5154,27 +5172,43 @@ var Reports = (function () {
   }
 
   /* ============================================================ GENERAL */
-  var SEC_EN = { veh: 'Rental vehicles', bus: 'Staff buses', meal: 'Meals', acc: 'Accommodation', pan: 'Pantry', cln: 'Cleaning crew', fw: 'Fuel, diesel & water' };
+  var SEC_EN = { veh: 'Rental vehicles', bus: 'Staff buses', meal: 'Meals', acc: 'Accommodation', pan: 'Pantry', ofs: 'Office supplies', cln: 'Cleaning crew', fw: 'Diesel & fuel', wtr: 'Water', car: 'Company cars', proc: 'Procurement', gen: 'Administration', emp: 'Employees' };
   function genMonthly(ctx, p) {
     var g = C.genOverview(ctx, p.key, 6, p.secs), n = g.keys.length, cur = g.totals[n - 1], prev = g.totals[n - 2];
     var h = hdr(ctx, { title: 'Monthly Administration Report', period: C.periodLabel(p.key), sub: 'Costs, savings and achievements of the Administration function', right: 'Management Report' });
-    h += kband([{ v: M(cur), l: 'Administration cost', hl: 1, s: C.periodLabel(p.key) }, { v: prev ? ((cur - prev) / prev * 100 >= 0 ? '+' : '') + ((cur - prev) / prev * 100).toFixed(1) + '%' : '—', l: 'vs previous month', s: prev ? I(prev) : '' },
+    h += kband([{ v: M(cur), l: 'Administration cost', hl: 1, s: C.periodLabel(p.key) }, { v: prev ? ((cur - prev) / prev * 100 >= 0 ? '+' : '') + ((cur - prev) / prev * 100).toFixed(1) + '%' : '—', l: 'vs previous month', s: prev ? 'Previous: ' + I(prev) : '' },
       { v: M(g.savingTotal), l: 'Savings this month' }, { v: g.achievements.length, l: 'Achievements' }, { v: g.alerts.filter(function (a) { return a.level === 'high'; }).length, l: 'Items needing action' }]);
+    var rowsT = g.table.filter(function (r) { return r.values.some(function (v) { return Math.abs(v.net) > 0.5; }); }); // sections with no cost in six months are left out
     h += '<h4>Cost by section (EGP, net)</h4>' + table([{ h: 'Section', f: function (r) { return '<b>' + (SEC_EN[r.sec] || r.sec) + '</b>'; } }]
       .concat(g.keys.map(function (k, i) { return { h: C.periodLabel(k), f: function (r) { return M(r.values[i].net, 0); }, cls: 'n' }; }))
       .concat([{ h: 'Change', f: function (r) { var a = r.values[n - 1].net, b = r.values[n - 2].net; return b ? ((a - b) / b * 100).toFixed(1) + '%' : ''; }, cls: 'n' },
-        { h: 'Period (' + C.periodLabel(p.key) + ')', f: function (r) { var x = r.values[n - 1].range; return x ? C.fmtDate(x.from).slice(0, 6) + ' – ' + C.fmtDate(x.to).slice(0, 6) : ''; }, cls: 'c' }]), g.table,
+        { h: 'Period (' + C.periodLabel(p.key) + ')', f: function (r) { var x = r.values[n - 1].range; return x ? C.fmtDate(x.from).slice(0, 6) + ' – ' + C.fmtDate(x.to).slice(0, 6) : ''; }, cls: 'c' }]), rowsT,
       [{ v: 'TOTAL' }].concat(g.totals.map(function (t) { return { v: M(t, 0), cls: 'n' }; })).concat([{ v: prev ? ((cur - prev) / prev * 100).toFixed(1) + '%' : '', cls: 'n' }, { v: '' }]));
     h += '<div class="avoid"><h4>Monthly cost trend</h4>' + vbars(g.keys.map(function (k, i) { return { l: C.periodLabel(k), v: g.totals[i] }; })) + '</div>';
-    h += '<h4>Saving cost</h4>' + table([{ h: '#', f: function (s, i) { return i + 1; }, cls: 'c' }, { h: 'Item', f: function (s) { return '<b>' + esc(s.row.title) + '</b>' + (s.row.description ? '<br><span class="g">' + esc(s.row.description) + '</span>' : ''); }, cls: 'wrap' },
-      { h: 'Section', f: function (s) { return SEC_EN[s.row.section] || esc(s.row.section); } }, { h: 'Before', f: function (s) { return M(s.row.before_amount); }, cls: 'n' }, { h: 'After', f: function (s) { return M(s.row.after_amount); }, cls: 'n' },
-      { h: 'Saving', f: function (s) { return '<b>' + M(s.saving) + '</b>'; }, cls: 'n' }, { h: 'Type', f: function (s) { return C.truthy(s.row.recurring) ? 'Monthly' : 'One-time'; }, cls: 'c' }], g.savings,
-      [{ v: '' }, { v: 'TOTAL SAVING', span: 4 }, { v: M(g.savingTotal), cls: 'n' }, { v: '' }], { empty: 'No savings recorded for this month' });
+    var part1 = h; h = hdr(ctx, { title: 'Monthly Administration Report', period: C.periodLabel(p.key), sub: 'Savings, achievements and follow-up', right: 'Management Report' });
+    var ba = g.savings.some(function (x) { return C.num(x.row.before_amount) || C.num(x.row.after_amount); });
+    var desc = function (r) { var d = String(r.description || ''); return /^EGP\b/i.test(d) ? M(r.saving_amount) + ' ' + d : d; }; // older notes lost their leading amount
+    h += '<h4>Saving cost</h4>' + table([{ h: '#', f: function (s, i) { return i + 1; }, cls: 'c' }, { h: 'Item', f: function (s) { var d = desc(s.row); return '<b>' + esc(s.row.title) + '</b>' + (d ? '<br><span class="g">' + esc(d) + '</span>' : ''); }, cls: 'wrap' },
+      { h: 'Section', f: function (s) { return SEC_EN[s.row.section] || esc(s.row.section); } }].concat(ba ? [{ h: 'Before', f: function (s) { return M(s.row.before_amount); }, cls: 'n' }, { h: 'After', f: function (s) { return M(s.row.after_amount); }, cls: 'n' }] : []).concat([
+      { h: 'Saving', f: function (s) { return '<b>' + M(s.saving) + '</b>'; }, cls: 'n' }, { h: 'Type', f: function (s) { return C.truthy(s.row.recurring) ? 'Monthly' : 'One-time'; }, cls: 'c' }]), g.savings,
+      [{ v: '' }, { v: 'TOTAL SAVING', span: ba ? 4 : 2 }, { v: M(g.savingTotal), cls: 'n' }, { v: '' }], { empty: 'No savings recorded for this month' });
     h += '<h4>Achievements</h4>' + table([{ h: '#', f: function (a, i) { return i + 1; }, cls: 'c' }, { h: 'Achievement', f: function (a) { return '<b>' + esc(a.title) + '</b>' + (a.description ? '<br>' + esc(a.description) : ''); }, cls: 'wrap' },
       { h: 'Section', f: function (a) { return SEC_EN[a.section] || esc(a.section); } }, { h: 'Impact', f: function (a) { return esc(a.impact); }, cls: 'wrap' }], g.achievements, null, { empty: 'No achievements recorded for this month' });
     var hi = g.alerts.filter(function (a) { return a.level !== 'low'; });
-    if (hi.length) h += '<h4>Follow-up items</h4><div class="notes">' + hi.map(function (a) { return '<div dir="auto">•  [' + (SEC_EN[a.sec] || a.sec) + '] ' + esc(a.en || a.text) + '</div>'; }).join('') + '</div>';
-    return page(h + signs(ctx) + foot(ctx));
+    // follow-up: one line per kind (eight invoices with the same remark become one line listing them)
+    var grp = {}, order = [];
+    hi.forEach(function (a) {
+      var t = String(a.en || a.text || ''), m = /^Invoice ([^:]+): (.*)$/.exec(t), k = m ? (a.sec + '|' + m[2].replace(/\d[\d,.]*/g, '#')) : (a.sec + '|' + t);
+      if (!grp[k]) { grp[k] = { sec: a.sec, text: t, inv: [], amt: [], gen: m ? m[2] : '' }; order.push(k); }
+      if (m) { grp[k].inv.push(m[1]); var am = /([\d,]+\.\d+)/.exec(m[2]); if (am) grp[k].amt.push(+am[1].replace(/,/g, '')); }
+    });
+    var lines = order.map(function (k) {
+      var x = grp[k]; if (x.inv.length < 2) return '[' + (SEC_EN[x.sec] || x.sec) + '] ' + esc(x.text);
+      var gen = x.gen.replace(/^\d+ deliveries/, 'deliveries').replace(/ by [\d,.]+$/, '');
+      return '[' + (SEC_EN[x.sec] || x.sec) + '] ' + x.inv.length + ' invoices — ' + esc(gen) + ': ' + x.inv.map(esc).join(', ') + (x.amt.length ? ' (total ' + M(x.amt.reduce(function (a, b) { return a + b; }, 0), 2) + ')' : '');
+    });
+    if (lines.length) h += '<h4>Follow-up items</h4><div class="notes">' + lines.map(function (l) { return '<div dir="auto">•  ' + l + '</div>'; }).join('') + '</div>';
+    return page(part1 + foot(ctx)) + page(h + signs(ctx) + foot(ctx));
   }
 
   /* ---------------- registry ---------------- */
@@ -6843,9 +6877,30 @@ var U = (function () {
       $('[data-lv-c]', el).onchange = function (e) { st.showCancel = e.target.checked; render(); };
       var ad = $('[data-lv-add]', el); if (ad) ad.onclick = function () { openForm(t, {}, Object.assign({ saveNew: true, onSave: render }, opts.formOpts || {}, { defaults: Object.assign({}, opts.defaults || {}, (opts.formOpts || {}).defaults || {}) })); };
       var mo = $('[data-lv-more]', el); if (mo) mo.onclick = function () { st.limit = (st.limit || 200) + 500; render(); };
+      fitCols();
       $$('th[data-sort]', el).forEach(function (th) { th.onclick = function () { var k = th.dataset.sort; st.sort = st.sort === k ? '-' + k : k; render(); }; });
       $$('tr[data-id]', el).forEach(function (tr) { tr.onclick = function (e) { if (e && e.target.closest('[data-nolv]')) return; var r = S.data[t].filter(function (x) { return x.id === tr.dataset.id; })[0]; openForm(t, r, Object.assign({ onSave: render }, opts.formOpts || {}, opts.formOptsFor ? opts.formOptsFor(r) : {})); }; });
     }
+    /* the table fits its card: when it is wider, the last columns step back (never the first one) and one chip brings them all back */
+    function fitCols() {
+      var w = $('.tbl-wrap', el), tb = w && $('table', w); if (!w || !tb) return;
+      $$('.cx-hide', tb).forEach(function (c) { c.classList.remove('cx-hide'); });
+      var old = $('.lv-cols', el); if (old) old.remove();
+      if (st.allCols || w.clientWidth < 200) return;
+      var n = tb.rows[0] ? tb.rows[0].cells.length : 0, hid = 0, extraN = opts.extra ? opts.extra.length : 0;
+      // hide from the right end of the data columns (keep the first two columns, the extras and the status cell)
+      for (var c = cols.length - 1; c >= 2 && tb.scrollWidth > w.clientWidth + 2; c--) {
+        $$('tr', tb).forEach(function (tr) { if (tr.cells.length === n && tr.cells[c]) tr.cells[c].classList.add('cx-hide'); });
+        hid++;
+      }
+      if (hid) {
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'btn sm lv-cols';
+        b.textContent = L('+ ' + hid + ' أعمدة مخفية — عرض الكل', '+ ' + hid + ' hidden columns — show all');
+        b.onclick = function () { st.allCols = true; render(); };
+        w.parentNode.insertBefore(b, w);
+      }
+    }
+    if (!el.__fitBound) { el.__fitBound = 1; var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { if (document.body.contains(el)) fitCols(); }, 200); }); }
     render();
     return { render: render, exportXlsx: exportXlsx };
   }
@@ -11940,6 +11995,18 @@ var App = (function () {
       U.call('api_save', 'core_users', rec).then(function (res) { if (!res.ok) { U.toast((res.errors || []).join(' • '), 1); return; } U.upsert('core_users', res.row); U.toast(L('تم حفظ الصلاحيات ✓', 'Permissions saved ✓')); }).catch(function (e) { U.toast(U.errMsg(e), 1); });
     };
   }
+  /* fit a report page that runs slightly longer than its sheet (up to 30%) onto one sheet; longer statements are left to continue */
+  var MM = 96 / 25.4;
+  function printFit(sc) {
+    $$('.rp', sc).forEach(function (pg) {
+      pg.style.zoom = ''; pg.classList.remove('pf-fit');
+      var cls = pg.className, land = /\bland\b|ps-a4l|ps-a3l/.test(cls), a3 = /ps-a3/.test(cls);
+      var H = (a3 ? (land ? 297 : 420) : (land ? 210 : 297)) * MM - 2, mh = pg.style.minHeight;
+      pg.style.minHeight = '0'; var h = pg.scrollHeight; pg.style.minHeight = mh;
+      if (h > H && h <= H * 1.5) { var k = Math.floor(H / h * 1000) / 1000, W = a3 ? (land ? 420 : 297) : (land ? 297 : 210); pg.dataset.pfw = pg.style.width || ''; pg.style.width = (W / k) + 'mm'; pg.style.height = ((H / MM - 0.6) / k) + 'mm'; pg.style.zoom = String(k); pg.classList.add('pf-fit'); }
+    });
+  }
+  function printUnfit(sc) { $$('.rp', sc).forEach(function (pg) { if (pg.classList.contains('pf-fit')) { pg.style.width = pg.dataset.pfw || ''; pg.style.height = ''; } pg.style.zoom = ''; pg.classList.remove('pf-fit'); }); }
   function hasOne() { return U.S().sections.some(function (x) { return x.code === 'emp'; }); }
   function spaceSw() {
     var one = hasOne(), hr = HR.allowed(); if (!one && !hr) return '';
@@ -12213,7 +12280,8 @@ var App = (function () {
     }
     function draw() {
       var html = Reports.render(r.id, U.ctx(), params());
-      var sc = $('#rep-scale', z); sc.innerHTML = html; pageSetup(sc); fit();
+      var sc = $('#rep-scale', z); sc.innerHTML = html; pageSetup(sc); fit(); setTimeout(fit, 120);
+      if (!z.__fitR) { z.__fitR = 1; var fr; window.addEventListener('resize', function () { clearTimeout(fr); fr = setTimeout(function () { if (document.body.contains(z)) fit(); }, 200); }); }
     }
     function pageSetup(sc) {
       var pa = P.paper || 'auto', or = P.orient || 'auto'; if (pa === 'auto' && or === 'auto') return;
@@ -12226,7 +12294,8 @@ var App = (function () {
       var zone = $('#rep-zone', z), sc = $('#rep-scale', z); if (!zone || !sc) return;
       sc.style.transform = ''; sc.style.width = ''; sc.style.height = '';
       var w = sc.scrollWidth, avail = zone.clientWidth;
-      if (w > avail && avail > 0) { var k = avail / w; sc.style.transform = 'scale(' + k + ')'; sc.style.width = w + 'px'; sc.style.height = (sc.scrollHeight * k) + 'px'; }
+      zone.style.overflowX = '';
+      if (w > avail && avail > 0) { var k = avail / w; sc.style.transform = 'scale(' + k + ')'; sc.style.width = w + 'px'; sc.style.height = (sc.scrollHeight * k) + 'px'; zone.style.overflowX = 'hidden'; }
     }
     $$('[data-rp]', z).forEach(function (el) {
       el.onchange = function () {
@@ -12249,7 +12318,8 @@ var App = (function () {
     $('[data-psetup]', z).onclick = function () { P.psOpen = !P.psOpen; var rw = $('.ps-row', z); rw.hidden = !P.psOpen; this.setAttribute('aria-expanded', P.psOpen ? 'true' : 'false'); };
     $$('[data-ps]', z).forEach(function (b) { b.onclick = function () { P[b.dataset.ps] = b.dataset.v; reportsPage(z, sec); }; });
     $('[data-rxl]', z).onclick = function () { reportExcel($('#rep-scale', z), r); };
-    $('[data-print]', z).onclick = function () { var sc = $('#rep-scale', z); sc.style.transform = ''; window.print(); setTimeout(fit, 300); };
+    $('[data-print]', z).onclick = function () { var sc = $('#rep-scale', z); sc.style.transform = ''; sc.style.width = ''; sc.style.height = ''; printFit(sc); window.print(); setTimeout(function () { printUnfit(sc); fit(); }, 300); };
+    if (!window.__pfBound) { window.__pfBound = 1; window.addEventListener('beforeprint', function () { var sc = document.getElementById('rep-scale'); if (sc) { sc.style.transform = ''; printFit(sc); } }); window.addEventListener('afterprint', function () { var sc = document.getElementById('rep-scale'); if (sc) printUnfit(sc); }); }
     window.onresize = fit;
     draw();
   }
