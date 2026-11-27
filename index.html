@@ -6713,6 +6713,7 @@ var U = (function () {
     s.fields.forEach(function (f) {
       var v = rec[f.k], blank = v === '' || v === undefined || v === null;
       if (f.req && blank && f.t !== 'bool') errs[f.k] = 'مطلوب';
+      else if (!blank && f.t === 'ref' && (S.data[f.ref] || []).some(function (x) { return x.id === v && x.status === 'Cancelled'; })) errs[f.k] = L('ملغاة — اختر غيرها', 'cancelled — choose another');
       else if (!blank && (f.t === 'num' || f.t === 'int') && isNaN(Number(v))) errs[f.k] = 'يجب إدخال رقم';
       else if (!blank && f.min !== undefined && Number(v) < f.min) errs[f.k] = 'أقل من المسموح (' + f.min + ')';
       else if (!blank && f.max !== undefined && Number(v) > f.max) errs[f.k] = 'أكبر من المسموح (' + f.max + ')';
@@ -6797,7 +6798,11 @@ var U = (function () {
     s.fields.forEach(function (f) { vals[f.k] = rec[f.k] !== undefined ? rec[f.k] : (opts.defaults && opts.defaults[f.k] !== undefined ? opts.defaults[f.k] : (isNew && f.def !== undefined ? f.def : '')); });
     var cancelled = rec.status === 'Cancelled';
     var hide = opts.hide || [];
+    // linked to something that was cancelled (e.g. a car merged into another): say so up front, with the way out
+    var deadRefs = s.fields.filter(function (f) { return f.t === 'ref' && vals[f.k]; }).map(function (f) {
+      var d = (S.data[f.ref] || []).filter(function (x) { return x.id === vals[f.k]; })[0]; return d && d.status === 'Cancelled' ? { f: f, d: d } : null; }).filter(Boolean);
     var body = (cancelled ? '<div class="warnbox">هذا السجل ملغي — السبب: ' + esc(rec.cancel_reason) + '</div>' : '') +
+      (!cancelled && deadRefs.length ? '<div class="warnbox">' + deadRefs.map(function (x) { return L('«' + x.f.l + '» المختارة في هذا السجل ملغاة: <b>', 'The ' + x.f.l + ' on this record is cancelled: <b>') + esc(refLabel(x.f.ref, x.d)) + '</b>' + (x.d.cancel_reason ? ' (' + esc(x.d.cancel_reason) + ')' : '') + L('. اختر الصحيحة من القائمة ثم احفظ.', '. Choose the correct one from the list, then save.'); }).join('<br>') + '</div>' : '') +
       '<div class="fgrid">' + s.fields.filter(function (f) { return hide.indexOf(f.k) < 0 && !f.hidden; }).map(function (f) { return fieldHtml(t, f, vals[f.k], { ro: !can || cancelled, thumb: f.t === 'image' ? vals[f.k.replace(/_url$/, '') + '_thumb'] : '' }); }).join('') + '</div>' +
       '<div id="form-live"></div>' +
       (rec.id ? '<div class="hist" style="margin-top:12px">' + esc(rec.id) + (rec.created_at ? ' • أُنشئ ' + esc(rec.created_at) + ' (' + esc(rec.created_by) + ')' : '') + (rec.updated_at ? ' • آخر تعديل ' + esc(rec.updated_at) + ' (' + esc(rec.updated_by) + ')' : '') + '</div><div id="form-hist"></div>' : '');
