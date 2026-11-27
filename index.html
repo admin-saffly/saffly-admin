@@ -10922,7 +10922,7 @@ var Importer = (function () {
 
   /* ---------- live keys ---------- */
   function KeyIndex(pack) {
-    var S = U.S(), keys = pack.keys, cache = {}, maps = {};
+    var S = U.S(), keys = pack.keys, cache = {}, maps = {}, remap = {};
     function fieldsOf(t) { var o = {}; ((S.schema[t] || {}).fields || []).forEach(function (f) { o[f.k] = f; }); return o; }
     function liveKey(t, r) {
       if (!r) return '';
@@ -10930,6 +10930,7 @@ var Importer = (function () {
       var fs = fieldsOf(t);
       var k = (keys[t] || ['id']).filter(function (x) { return x !== '#'; }).map(function (x) {
         var f = fs[x], v = r[x];
+        if (f && f.t === 'ref' && v && remap[v]) v = remap[v]; // a record being merged counts as its target
         if (f && f.t === 'ref' && v) { var rr = U.ctx().byId(f.ref, v) || (S.data[f.ref] || []).filter(function (y) { return y.id === v; })[0]; return '@' + f.ref + ':' + liveKey(f.ref, rr); }
         return norm(v);
       }).join('|');
@@ -10952,12 +10953,50 @@ var Importer = (function () {
       return m && m[0] ? m[0].id : '';
     }
     function reset(t) { if (t) { delete maps[t]; Object.keys(cache).forEach(function (c) { if (c.indexOf(t + '#') === 0) delete cache[c]; }); } else { maps = {}; cache = {}; } }
-    return { liveKey: liveKey, map: map, cmap: cmap, packKey: packKey, resolve: resolve, reset: reset, fieldsOf: fieldsOf };
+    return { liveKey: liveKey, map: map, cmap: cmap, packKey: packKey, resolve: resolve, reset: reset, fieldsOf: fieldsOf, remap: remap };
+  }
+
+  /* ops of one merge: linked records move to the target; tables listed in m.cancel (e.g. the car's own terms) are cancelled instead of moved */
+  function mergeOps(m, from, to) {
+    var why = m.reason || '';
+    var p = Review.planMerge(m.t, from, to, why), out = [];
+    p.ops.forEach(function (o) {
+      if (o.t === m.t) { if (from.status !== 'Cancelled') out.push(o); return; }
+      if ((m.cancel || []).indexOf(o.t) >= 0 && o.kind === 'set') { out.push({ kind: 'cancel', t: o.t, list: o.list.map(function (x) { return { id: x.id, reason: L('أُلغي مع دمج «', 'Cancelled with the merge of «') + U.refLabel(m.t, from) + L('» في «', '» into «') + U.refLabel(m.t, to) + '»' + (why ? ' — ' + why : '') }; }) }); return; }
+      out.push(o);
+    });
+    return out;
+  }
+  function runMergeOps(z, ops) {
+    return ops.reduce(function (q, o) {
+      return q.then(function () {
+        var saves = [], cancels = [];
+        if (o.kind === 'cancel') cancels = o.list; else saves = o.list.map(function (x) { var r = { id: x.id }; r[x.k] = x.v; return r; });
+        return U.call('api_saveBatch', o.t, saves, cancels).then(function (res) {
+          (res.rows || []).forEach(function (r) { U.upsert(o.t, r); }); (res.cancelled || []).forEach(function (r) { U.upsert(o.t, r); });
+          var ttl = (U.S().schema[o.t] || {}).title || o.t;
+          if (!res.ok) throw new Error(ttl + ': ' + (res.batchErrors || []).map(function (b) { return (b.errors || []).join('، '); }).join(' • '));
+          log(z, ttl + ': ' + (o.kind === 'cancel' ? L('إلغاء ', 'cancelled ') : L('نقل ', 'moved ')) + o.list.length, 'ok');
+        });
+      });
+    }, Promise.resolve());
   }
 
   /* ---------- plan ---------- */
   function makePlan(pack) {
-    var S = U.S(), X = KeyIndex(pack), plan = { tables: [], X: X };
+    var S = U.S(), X = KeyIndex(pack), plan = { tables: [], X: X, merges: [] };
+    // merges: «move everything of record A to record B» (e.g. a car whose days belong to another car); A is then cancelled with the reason
+    (pack.merges || []).forEach(function (m, i) {
+      var all = S.data[m.t] || [], kf = m.key || 'code';
+      var to = all.filter(function (r) { return r.status !== 'Cancelled' && norm(r[kf]) === norm(m.into); })[0];
+      var froms = all.filter(function (r) { return norm(r[kf]) === norm(m.from) && (!to || r.id !== to.id); });
+      if (!to || !froms.length) return;
+      var k = 'merge|' + i, on = st.pick[k] !== 0;
+      var n = 0; froms.forEach(function (f) { mergeOps(m, f, to).forEach(function (o) { if (o.t !== m.t) n += o.list.length; }); });
+      if (!n && froms.every(function (f) { return f.status === 'Cancelled'; })) return;
+      if (on) froms.forEach(function (f) { X.remap[f.id] = to.id; });
+      plan.merges.push({ k: k, m: m, froms: froms, to: to, n: n, on: on });
+    });
     pack.order.forEach(function (t) {
       var rows = (pack.tables || {})[t]; if (!rows || !rows.length || !S.schema[t]) return;
       var fs = X.fieldsOf(t), live = X.map(t), dead = X.cmap(t), groups = {}, P = { t: t, title: S.schema[t].title, add: [], fill: [], conflicts: [], restore: [], same: 0, canWrite: S.schema[t].canWrite };
@@ -10974,7 +11013,8 @@ var Importer = (function () {
             var pv = r[f], lv = lr[f];
             var pRef = typeof pv === 'string' && pv.charAt(0) === '@';
             if (empty(lv) || (fd.t === 'bool' && !C.truthy(lv) && C.truthy(pv))) { if (!empty(pv)) fill[f] = pv; return; }
-            var lvs = fd.t === 'ref' ? '@' + fd.ref + ':' + X.liveKey(fd.ref, U.ctx().byId(fd.ref, lv)) : norm(lv);
+            var lid = fd.t === 'ref' ? (X.remap[lv] || lv) : lv; // a record being merged already counts as its target
+            var lvs = fd.t === 'ref' ? '@' + fd.ref + ':' + X.liveKey(fd.ref, U.ctx().byId(fd.ref, lid) || (S.data[fd.ref] || []).filter(function (y) { return y.id === lid; })[0]) : norm(lv);
             var pvs = pRef ? pv : norm(pv);
             if (lvs !== pvs && !(fd.t === 'bool' && C.truthy(lv) === C.truthy(pv))) conf.push({ f: f, label: fd.l, live: fd.t === 'ref' ? U.valText(t, fd, lv) : lv, pack: pRef ? pv.slice(pv.indexOf(':') + 1) : pv, raw: pv });
           });
@@ -11013,6 +11053,8 @@ var Importer = (function () {
       '<div class="dz-kpis"><div><span>' + L('سجلات جديدة', 'New records') + '</span><b>' + C.fmtInt(tot.add) + '</b></div><div><span>' + L('سجلات ستُستكمل حقولها الفارغة', 'Records to complete') + '</span><b>' + C.fmtInt(tot.fill) + '</b></div><div><span>' + L('موجودة دون تغيير', 'Already identical') + '</span><b>' + C.fmtInt(tot.same) + '</b></div><div><span>' + L('قيم مختلفة (تتطلب موافقتك)', 'Different values (need approval)') + '</span><b class="' + (tot.conf ? 'warn' : '') + '">' + C.fmtInt(tot.conf) + '</b></div><div><span>' + L('ملفات مربوطة', 'Linked files') + '</span><b>' + linkedF + ' / ' + P.files.length + '</b></div></div>' +
       '<div class="tbl-wrap"><table class="t"><thead><tr><th>' + L('الجدول', 'Table') + '</th><th class="n">' + L('جديد', 'New') + '</th><th class="n">' + L('تكميل', 'Complete') + '</th><th class="n">' + L('دون تغيير', 'Same') + '</th><th class="n">' + L('مختلف', 'Different') + '</th></tr></thead><tbody>' +
       P.tables.map(function (x) { return '<tr><td>' + esc(x.title) + (x.canWrite ? '' : ' <span class="pill warn">' + L('غير متاح لك', 'no access') + '</span>') + '</td><td class="n">' + (x.add.length || '—') + '</td><td class="n">' + (x.fill.length || '—') + '</td><td class="n">' + (x.same || '—') + '</td><td class="n">' + (x.conflicts.length ? '<b class="warn">' + x.conflicts.length + '</b>' : '—') + '</td></tr>'; }).join('') + '</tbody></table></div>' +
+      (P.merges.length ? '<div class="infobox" style="margin-top:12px"><b>' + L('دمج سجلات', 'Merges') + '</b><div class="hint">' + L('تُنقل سجلات الأول إلى الثاني، ثم يُلغى الأول مع ذكر السبب ويبقى في الشيت. لا يُحذف شيء.', 'Records of the first move to the second; the first is then cancelled with the reason and stays in the sheet. Nothing is deleted.') + '</div>' +
+        P.merges.map(function (g) { return '<label class="chk"><input type="checkbox" data-ipm="' + esc(g.k) + '"' + (g.on ? ' checked' : '') + '> ' + esc((U.S().schema[g.m.t] || {}).title || g.m.t) + ': <b>' + g.froms.map(function (f) { return esc(U.refLabel(g.m.t, f)) + ' (' + esc(f.id) + (f.status === 'Cancelled' ? L(' — ملغى', ' — cancelled') : '') + ')'; }).join(' + ') + '</b> ← <b>' + esc(U.refLabel(g.m.t, g.to)) + '</b> · ' + g.n + ' ' + L('سجل', 'record(s)') + (g.m.reason ? ' — ' + esc(g.m.reason) : '') + '</label>'; }).join('') + '</div>' : '') +
       (tot.rest ? '<div class="warnbox" style="margin-top:12px"><b>' + L('سجلات ملغاة في المنظومة وما زالت موجودة في الحزمة', 'Records cancelled in the system that the pack still contains') + '</b><div class="hint">' + L('لن تُضاف من جديد. حدّد ما تريد استرجاعه (يُسجَّل الاسترجاع في سجل التعديلات)، وما لا تحدّده يبقى ملغيًا وتُتخطّى السجلات المرتبطة به.', 'They are not added again. Tick what to restore (the restore is recorded in the change log); anything left unticked stays cancelled and records linked to it are skipped.') + '</div>' +
         P.tables.map(function (x) { return x.restore.map(function (c) { return '<label class="chk"><input type="checkbox" data-ipc="' + esc(c.k) + '"' + (st.pick[c.k] ? ' checked' : '') + '> ' + esc(x.title) + ': <b>' + esc(U.refLabel(x.t, c.rec)) + '</b>' + (c.rec.cancel_reason ? ' — ' + L('سبب الإلغاء: ', 'cancel reason: ') + esc(c.rec.cancel_reason) : '') + '</label>'; }).join(''); }).join('') + '</div>' : '') +
       (tot.conf ? '<details class="imp-conf"><summary>' + L('القيم المختلفة — حدّد ما تريد اعتماد قيمة الحزمة فيه (الافتراضي: الإبقاء على قيمة المنظومة)', 'Different values — tick where the pack value should replace the current one (default: keep the current value)') + '</summary><div class="tbl-wrap"><table class="t"><thead><tr><th></th><th>' + L('الجدول', 'Table') + '</th><th>' + L('السجل', 'Record') + '</th><th>' + L('الخانة', 'Field') + '</th><th>' + L('في المنظومة', 'Current') + '</th><th>' + L('في الحزمة', 'Pack') + '</th></tr></thead><tbody>' +
@@ -11023,6 +11065,7 @@ var Importer = (function () {
       '<div class="imp-prog" data-ipprog' + (st.log.length ? '' : ' hidden') + '><div class="imp-bar"><i data-ipbar style="width:0"></i></div><div class="imp-now" data-ipnow></div><div class="imp-log" data-iplog>' + st.log.map(function (l) { return '<div class="' + l.c + '">' + esc(l.t) + '</div>'; }).join('') + '</div></div></div>';
     $('[data-ipx]', z).onclick = function () { if (st.busy) return; st.pack = null; st.zip = null; st.plan = null; st.log = []; st.pick = {}; render(z); };
     $$('[data-ipc]', z).forEach(function (c) { c.onchange = function () { if (c.checked) st.pick[c.dataset.ipc] = 1; else delete st.pick[c.dataset.ipc]; }; });
+    $$('[data-ipm]', z).forEach(function (c) { c.onchange = function () { st.pick[c.dataset.ipm] = c.checked ? 1 : 0; st.plan = null; render(z); }; });
     var a = $('[data-ipa]', z); if (a) a.onchange = function () { st.inclArchive = a.checked; };
     $('[data-ipgo]', z).onclick = function () { run(z); };
     var sb = $('[data-ipstop]', z); if (sb) sb.onclick = function () { st.stop = true; };
@@ -11064,6 +11107,16 @@ var Importer = (function () {
     var linked = P.files.filter(function (f) { return f.link; }), arch = st.inclArchive ? P.files.filter(function (f) { return !f.link; }) : [];
     total += (st.zip ? linked.length + arch.length : 0);
     var chain = Promise.resolve();
+    P.merges.filter(function (g) { return g.on; }).forEach(function (g) {
+      g.froms.forEach(function (f) {
+        chain = chain.then(function () {
+          if (st.stop) throw new Error('stop');
+          log(z, L('دمج ', 'Merging ') + U.refLabel(g.m.t, f) + ' (' + f.id + ') ← ' + U.refLabel(g.m.t, g.to), 'ok');
+          return runMergeOps(z, mergeOps(g.m, f, g.to));
+        });
+      });
+    });
+    if (P.merges.some(function (g) { return g.on; })) chain = chain.then(function () { X.reset(); U.rebuild(); });
     P.tables.forEach(function (x) {
       if (!x.canWrite) { if (x.add.length || x.fill.length) log(z, x.title + ': ' + L('ليست لديك صلاحية تعديل هذا الجدول — تم التخطي.', 'no write access — skipped.'), 'warn'); return; }
       chunked(x.add, 80).forEach(function (ch) {
