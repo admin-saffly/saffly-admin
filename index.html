@@ -2812,6 +2812,11 @@ html[data-theme=dark] table.t tbody tr.click td.hc{background:rgba(59,130,246,.2
 .dsec-d{font-size:11px;color:var(--grey);margin-top:-2px;margin-bottom:2px;text-align:start}
 html[dir=rtl] .dsec-d{text-align:right}
 
+.lv-focus{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;padding:9px 12px;border-radius:12px;background:var(--acc-soft,#EEF4FF);border:1px solid var(--acc-line,#BFD3FB);color:var(--ink);font-size:13px}
+.lv-focus span{flex:1;min-width:0}
+.al-i{width:100%;border:0;background:transparent;font:inherit;text-align:start;cursor:pointer;border-radius:8px;padding:3px 4px;margin:0 -4px;transition:background .12s}
+.al-i:hover{background:var(--soft);color:var(--ink)}
+
 /* ============ Report pages (A4) — same look as the Excel statements ============ */
 .rp{width:210mm;min-height:297mm;background:#fff;margin:0 auto 16px;padding:10mm 9mm;box-shadow:0 2px 10px rgba(0,0,0,.08);
   font-family:"SAF Sans",Calibri,"Segoe UI",Carlito,Arial,sans-serif;color:#2F3B45;font-size:8.2pt;direction:ltr;text-align:left;line-height:1.35;position:relative}
@@ -4375,54 +4380,63 @@ var Calc = (function () {
 
   function genAlerts(ctx, key) {
     var A = [];
-    function add(sec, level, text, en) { A.push({ sec: sec, level: level, text: text, en: en || text }); }
+    function add(sec, level, text, en, go) { A.push({ sec: sec, level: level, text: text, en: en || text, go: go || null }); }
+    // where an alert leads: the section's records, filtered to exactly the rows behind it
+    function to(sec, t, ids, label, extra) { return Object.assign({ page: 'sec', sec: sec, tab: 'log', sub: t, focus: { t: t, ids: (ids || []).filter(Boolean), label: label || '' } }, extra || {}); }
     try {
       var v = vehReport(ctx, [key]);
       v.rows.forEach(function (r) {
         var n = r.vehicle.name;
-        if (r.issues) add('veh', 'high', n + ': ' + r.issues + ' سطر في السجل يحتاج مراجعة', n + ': ' + r.issues + ' log row(s) need review');
-        if (r.xkm > 0) add('veh', 'mid', n + ': تجاوز الكيلومترات المسموحة بـ ' + fmtInt(r.xkm) + ' كم', n + ': ' + fmtInt(r.xkm) + ' km above allowance');
-        if (r.rent === 0 && r.trips > 0) add('veh', 'high', n + ': لا يوجد سعر إيجار مسجل للفترة', n + ': no rental price recorded for the period');
+        var lg = (r.logs || []).filter(function (l) { return !l.row.deduction; });
+        if (r.issues) add('veh', 'high', n + ': ' + r.issues + ' سطر في السجل يحتاج مراجعة', n + ': ' + r.issues + ' log row(s) need review',
+          to('veh', 'veh_log', lg.filter(function (l) { return l.check.charAt(0) === '⚠'; }).map(function (l) { return l.row.id; }), n));
+        if (r.xkm > 0) add('veh', 'mid', n + ': تجاوز الكيلومترات المسموحة بـ ' + fmtInt(r.xkm) + ' كم', n + ': ' + fmtInt(r.xkm) + ' km above allowance',
+          to('veh', 'veh_log', lg.map(function (l) { return l.row.id; }), n));
+        if (r.rent === 0 && r.trips > 0) add('veh', 'high', n + ': لا يوجد سعر إيجار مسجل للفترة', n + ': no rental price recorded for the period',
+          (function () { var tm = ctx.T('veh_terms').filter(function (t) { return t.vehicle_id === r.vehicle.id; }).map(function (t) { return t.id; });
+            return Object.assign(tm.length ? to('veh', 'veh_terms', tm, n) : to('veh', 'veh_vehicles', [r.vehicle.id], n), { tab: 'master' }); })());
       });
     } catch (e) { }
     try {
       var asOf = ctx.today, c = accCost(ctx, asOf, monthStart(asOf), asOf, true);
       c.model.contracts.filter(function (x) { return x.latest && (x.state === 'Urgent' || x.state === 'Expiring' || x.state === 'Expired'); })
         .forEach(function (x) { add('acc', x.state === 'Expiring' ? 'mid' : 'high', 'عقد ' + x.key + ' (' + x.row.units_covered + '): ' + (x.daysLeft < 0 ? 'منتهي' : 'متبقٍ ' + x.daysLeft + ' يوم'),
-          'Contract ' + x.key + ' (' + x.row.units_covered + '): ' + (x.daysLeft < 0 ? 'expired' : x.daysLeft + ' days left')); });
+          'Contract ' + x.key + ' (' + x.row.units_covered + '): ' + (x.daysLeft < 0 ? 'expired' : x.daysLeft + ' days left'), Object.assign(to('acc', 'acc_contracts', [x.row.id], x.key), { tab: 'master' })); });
       if (c.actions.openMaint) add('acc', c.actions.openHigh ? 'high' : 'mid', 'طلبات صيانة مفتوحة: ' + c.actions.openMaint + (c.actions.openHigh ? ' (منها ' + c.actions.openHigh + ' عاجلة)' : ''),
-        'Open maintenance requests: ' + c.actions.openMaint + (c.actions.openHigh ? ' (' + c.actions.openHigh + ' urgent)' : ''));
-      if (c.totals.undocRent) add('acc', 'mid', 'إيجار مستحق دون إثبات سداد: ' + fmtInt(c.totals.undocRent), 'Rent due without proof of payment: ' + fmtInt(c.totals.undocRent) + ' EGP');
+        'Open maintenance requests: ' + c.actions.openMaint + (c.actions.openHigh ? ' (' + c.actions.openHigh + ' urgent)' : ''),
+        to('acc', 'acc_maintenance', ctx.T('acc_maintenance').filter(function (m) { return m.m_status !== 'Done' && m.unit_id; }).map(function (m) { return m.id; })));
+      if (c.totals.undocRent) add('acc', 'mid', 'إيجار مستحق دون إثبات سداد: ' + fmtInt(c.totals.undocRent), 'Rent due without proof of payment: ' + fmtInt(c.totals.undocRent) + ' EGP',
+        { page: 'sec', sec: 'acc', tab: 'reports' });
     } catch (e) { }
     try {
       var rg = periodRange(key, ctx.cycle('fw')), f = fwFleetReport(ctx, rg);
-      if (f.checks.length) add('fw', 'mid', 'عمليات تفويل تحتاج مراجعة: ' + f.checks.length, 'Refuels needing review: ' + f.checks.length);
+      if (f.checks.length) add('fw', 'mid', 'عمليات تفويل تحتاج مراجعة: ' + f.checks.length, 'Refuels needing review: ' + f.checks.length, to('car', 'fw_refuels', f.checks.map(function (o) { return o.row.id; })));
       var pg = ctx.T('fw_log').filter(function (r) { var it = ctx.byId('fw_items', r.item_id); return !r.grn_id && it && it.kind === 'سولار' && r.date <= ctx.today; });
-      if (pg.length) add('fw', 'mid', 'توريدات سولار بدون إذن استلام (GRN): ' + pg.length + ' — ' + fmtInt(sum(pg, function (r) { return r.qty; })) + ' لتر', 'Diesel deliveries without a GRN: ' + pg.length + ' — ' + fmtInt(sum(pg, function (r) { return r.qty; })) + ' L');
+      if (pg.length) add('fw', 'mid', 'توريدات سولار بدون إذن استلام (GRN): ' + pg.length + ' — ' + fmtInt(sum(pg, function (r) { return r.qty; })) + ' لتر', 'Diesel deliveries without a GRN: ' + pg.length + ' — ' + fmtInt(sum(pg, function (r) { return r.qty; })) + ' L', to('fw', 'fw_log', pg.map(function (r) { return r.id; })));
     } catch (e) { }
     try {
       var p = panReport(ctx, periodRange(key, ctx.cycle('pan')));
-      p.rows.filter(function (r) { return r.below; }).forEach(function (r) { add('pan', 'mid', r.item.name + ': الرصيد ' + r.close + ' أقل من حد إعادة الطلب ' + r.item.par_level, r.item.name + ': stock ' + r.close + ' below re-order level ' + r.item.par_level); });
-      p.rows.filter(function (r) { return r.over; }).forEach(function (r) { add('pan', 'mid', r.item.name + ': الصرف أعلى من الحصة المقررة', r.item.name + ': consumption above allocation'); });
+      p.rows.filter(function (r) { return r.below; }).forEach(function (r) { add('pan', 'mid', r.item.name + ': الرصيد ' + r.close + ' أقل من حد إعادة الطلب ' + r.item.par_level, r.item.name + ': stock ' + r.close + ' below re-order level ' + r.item.par_level, Object.assign(to('pan', 'pan_items', [r.item.id], r.item.name), { tab: 'master' })); });
+      p.rows.filter(function (r) { return r.over; }).forEach(function (r) { add('pan', 'mid', r.item.name + ': الصرف أعلى من الحصة المقررة', r.item.name + ': consumption above allocation', Object.assign(to('pan', 'pan_items', [r.item.id], r.item.name), { tab: 'master' })); });
       var o = panReport(ctx, periodRange(key, ctx.cycle('ofs')), null, 'ofs');
-      o.rows.filter(function (r) { return r.below; }).forEach(function (r) { add('ofs', 'mid', r.item.name + ': الرصيد ' + r.close + ' أقل من حد إعادة الطلب ' + r.item.par_level, r.item.name + ': stock ' + r.close + ' below re-order level ' + r.item.par_level); });
+      o.rows.filter(function (r) { return r.below; }).forEach(function (r) { add('ofs', 'mid', r.item.name + ': الرصيد ' + r.close + ' أقل من حد إعادة الطلب ' + r.item.par_level, r.item.name + ': stock ' + r.close + ' below re-order level ' + r.item.par_level, Object.assign(to('ofs', 'ofs_items', [r.item.id], r.item.name), { tab: 'master' })); });
     } catch (e) { }
     try {
       var cl = clnReport(ctx, periodRange(key, ctx.cycle('cln')));
-      if (cl.checks.length) add('cln', 'mid', 'سجلات حضور تحتاج مراجعة: ' + cl.checks.length, 'Attendance rows needing review: ' + cl.checks.length);
+      if (cl.checks.length) add('cln', 'mid', 'سجلات حضور تحتاج مراجعة: ' + cl.checks.length, 'Attendance rows needing review: ' + cl.checks.length, to('cln', 'cln_log', cl.checks.map(function (c) { return c.row && c.row.id; })));
     } catch (e) { }
     try {
       var mr = mealReport(ctx, periodRange(key, ctx.cycle('meal')));
-      if (mr.totals.noReceipt) add('meal', 'low', 'أيام وجبات دون رقم إيصال: ' + mr.totals.noReceipt, 'Meal days without a receipt number: ' + mr.totals.noReceipt);
+      if (mr.totals.noReceipt) { var mrg = periodRange(key, ctx.cycle('meal')); add('meal', 'low', 'أيام وجبات دون رقم إيصال: ' + mr.totals.noReceipt, 'Meal days without a receipt number: ' + mr.totals.noReceipt, to('meal', 'meal_log', ctx.T('meal_log').filter(function (r) { return inRange(r.date, mrg.from, mrg.to) && !r.serial_no && !r.invoice_no; }).map(function (r) { return r.id; }))); }
     } catch (e) { }
     try {
       ctx.T('proc_invoices').forEach(function (v) {
         var t = v.section === 'wtr' ? 'wtr_log' : v.section === 'fw' ? 'fw_log' : null; if (!t) return;
         if (ctx.T(t).some(function (r) { return r.invoice_id === v.id; })) return;
         var n = ctx.T(t).filter(function (r) { return !r.invoice_id && r.supplier === v.supplier && (!v.period_from || r.date >= v.period_from) && (!v.period_to || r.date <= v.period_to); }).length;
-        if (n) add('proc', 'high', 'الفاتورة ' + v.invoice_no + ': توجد ' + n + ' توريدات في فترتها غير مربوطة بها — اربطها من سجل الفواتير لتجنّب الاحتساب مرتين', 'Invoice ' + v.invoice_no + ': ' + n + ' deliveries in its period are not linked — link them from the invoice register to avoid double counting');
+        if (n) add('proc', 'high', 'الفاتورة ' + v.invoice_no + ': توجد ' + n + ' توريدات في فترتها غير مربوطة بها — اربطها من سجل الفواتير لتجنّب الاحتساب مرتين', 'Invoice ' + v.invoice_no + ': ' + n + ' deliveries in its period are not linked — link them from the invoice register to avoid double counting', to(v.section, v.section === 'wtr' ? 'wtr_log' : 'fw_log', ctx.T(t).filter(function (r) { return !r.invoice_id && r.supplier === v.supplier && (!v.period_from || r.date >= v.period_from) && (!v.period_to || r.date <= v.period_to); }).map(function (r) { return r.id; }), v.invoice_no));
       });
-      ctx.T('proc_invoices').forEach(function (v) { var c = invCalc(ctx, v); if (c.paperDiff != null && Math.abs(c.paperDiff) >= 0.5) add('proc', 'mid', 'الفاتورة ' + v.invoice_no + ': فرق عن الصافي المطبوع ' + fmtMoney(c.paperDiff, 2), 'Invoice ' + v.invoice_no + ': differs from printed net by ' + fmtMoney(c.paperDiff, 2)); });
+      ctx.T('proc_invoices').forEach(function (v) { var c = invCalc(ctx, v); if (c.paperDiff != null && Math.abs(c.paperDiff) >= 0.5) add('proc', 'mid', 'الفاتورة ' + v.invoice_no + ': فرق عن الصافي المطبوع ' + fmtMoney(c.paperDiff, 2), 'Invoice ' + v.invoice_no + ': differs from printed net by ' + fmtMoney(c.paperDiff, 2), Object.assign(to('proc', 'proc_invoices', [v.id], v.invoice_no), { tab: 'log' })); });
     } catch (e) { }
     return A;
   }
@@ -6332,14 +6346,14 @@ var Analytics = (function () {
       var nm = function (s) { return { ar: nameOf(s, true), en: nameOf(s, false) }; };
       // alerts
       var seen = {};
-      [key, prevKey].forEach(function (k) { try { C.genAlerts(ctx, k).forEach(function (a) { var id = a.sec + '|' + a.en; if (seen[id]) return; seen[id] = 1; out.attention.push({ id: 'al|' + id, sec: a.sec, level: a.level, ar: a.text, en: a.en, go: { page: 'sec', sec: a.sec, tab: 'entry' } }); }); } catch (e) { } });
+      [key, prevKey].forEach(function (k) { try { C.genAlerts(ctx, k).forEach(function (a) { var id = a.sec + '|' + a.en; if (seen[id]) return; seen[id] = 1; out.attention.push({ id: 'al|' + id, sec: a.sec, level: a.level, ar: a.text, en: a.en, go: a.go || { page: 'sec', sec: a.sec, tab: 'entry' } }); }); } catch (e) { } });
       anomalies(ctx, { to: ctx.today, days: 14, key: key }).forEach(function (a) { out.attention.push({ id: 'an|' + a.kind + '|' + a.sec + '|' + (a.date || a.key), sec: a.sec, level: a.level, ar: a.ar, en: a.en, kind: 'anomaly', go: { page: 'fin' } }); });
       // supplier invoices still due
       ctx.T('proc_invoices').forEach(function (v) {
         var c = C.invCalc(ctx, v); if (c.due <= 0.01) return;
         var age = C.diffDays(v.date, ctx.today);
         out.payments.push({ id: 'inv|' + v.id, sec: v.section || 'proc', level: age > 30 ? 'high' : age > 14 ? 'mid' : 'low', amount: c.due, date: v.date, age: age, supplier: v.supplier, ref: v.invoice_no,
-          ar: 'فاتورة ' + v.invoice_no + ' — ' + v.supplier, en: 'Invoice ' + v.invoice_no + ' — ' + v.supplier, go: { page: 'sec', sec: 'proc', tab: 'entry', sub: 'invs' } });
+          ar: 'فاتورة ' + v.invoice_no + ' — ' + v.supplier, en: 'Invoice ' + v.invoice_no + ' — ' + v.supplier, go: { page: 'sec', sec: 'proc', tab: 'log', sub: 'proc_invoices', focus: { t: 'proc_invoices', ids: [v.id], label: v.invoice_no } } });
       });
       out.payments.sort(function (a, b) { return b.age - a.age; });
       // supplier balances (deliveries not yet invoiced or paid)
@@ -6353,7 +6367,7 @@ var Analytics = (function () {
         if (d.pend_status === 'تم الاستلام' || d.pend_status === 'لا يلزم' || d.invoice_id) return;
         // closes by itself when a real invoice of the same supplier / section / month is recorded afterwards
         if (d.supplier && ctx.T('proc_invoices').some(function (v) { return v.section === d.section && v.supplier === d.supplier && (v.month || String(v.date).slice(0, 7)) === d.month && (v.doc_kind || 'فاتورة') === 'فاتورة' && String(v.created_at || '') > String(d.created_at || ''); })) return;
-        out.tasks.push({ id: 'pend|' + d.id, sec: d.section || 'proc', level: 'mid', ar: 'مستند ناقص: ' + d.description + (d.month ? ' (' + d.month + ')' : '') + (d.amount ? ' — محسوب ' + C.fmtMoney(d.amount, 0) : ''), en: 'Missing document: ' + d.description + (d.month ? ' (' + d.month + ')' : ''), go: { page: 'sec', sec: 'proc', tab: 'log', sub: 'proc_pending' } });
+        out.tasks.push({ id: 'pend|' + d.id, sec: d.section || 'proc', level: 'mid', ar: 'مستند ناقص: ' + d.description + (d.month ? ' (' + d.month + ')' : '') + (d.amount ? ' — محسوب ' + C.fmtMoney(d.amount, 0) : ''), en: 'Missing document: ' + d.description + (d.month ? ' (' + d.month + ')' : ''), go: { page: 'sec', sec: 'proc', tab: 'log', sub: 'proc_pending', focus: { t: 'proc_pending', ids: [d.id], label: d.description } } });
       });
       var noGrn = ctx.T('fw_log').filter(function (r) { return !r.grn_id; }).length;
       var unsigned = ctx.T('proc_grn').filter(function (g) { return !g.signed_file && g.date && C.diffDays(g.date, ctx.today) >= 2; });
@@ -6361,7 +6375,7 @@ var Analytics = (function () {
       if (noGrn) out.tasks.push({ id: 'nogrn|fw', sec: 'fw', level: 'low', count: noGrn, ar: noGrn + ' توريد سولار بدون إذن استلام (GRN)', en: noGrn + ' diesel deliveries without a GRN', go: { page: 'sec', sec: 'proc', tab: 'entry', sub: 'diesel' } });
       try {
         var vr = C.vehReport(ctx, [prevKey]), pend = vr.rows.filter(function (r) { return !r.approval && (r.total || r.km); });
-        if (pend.length) out.tasks.push({ id: 'vehap|' + prevKey, sec: 'veh', level: 'mid', count: pend.length, ar: 'اعتماد ' + pend.length + ' سيارة عن ' + C.periodLabelAr(prevKey) + ' لم يتم', en: pend.length + ' vehicles not yet approved for ' + C.periodLabel(prevKey), go: { page: 'sec', sec: 'veh', tab: 'approve' } });
+        if (pend.length) out.tasks.push({ id: 'vehap|' + prevKey, sec: 'veh', level: 'mid', count: pend.length, ar: 'اعتماد ' + pend.length + ' سيارة عن ' + C.periodLabelAr(prevKey) + ' لم يتم', en: pend.length + ' vehicles not yet approved for ' + C.periodLabel(prevKey), go: { page: 'sec', sec: 'veh', tab: 'adj', sub: 'veh_approvals' } });
       } catch (e) { }
       // housing: residents by unit (names go into the reminders)
       var living = ctx.T('acc_housing').filter(function (h) { return (!h.move_in || h.move_in <= ctx.today) && (!h.move_out || h.move_out > ctx.today); });
@@ -6409,7 +6423,7 @@ var Analytics = (function () {
         if (fl.length) out.tasks.push({ id: 'accdocs|' + fl.length + '|' + C.sum(fl, function (o) { return o.missing.length; }), sec: 'acc', level: 'low', count: fl.length, ar: fl.length + ' وحدة سكن ملفها ناقص (' + C.sum(fl, function (o) { return o.missing.length; }) + ' بند: مستندات / موقع / صورة)', en: fl.length + ' housing units have incomplete files (' + C.sum(fl, function (o) { return o.missing.length; }) + ' items: papers / location / photo)', go: { page: 'sec', sec: 'acc', tab: 'units', homeView: 'missing' } });
       } catch (e) { }
       var openM = ctx.T('acc_maintenance').filter(function (m) { return m.m_status && !/closed|done|مغلق|تم/i.test(m.m_status) && !m.resolved; });
-      if (openM.length) out.tasks.push({ id: 'maint', sec: 'acc', level: openM.some(function (m) { return /high|urgent|عاجل/i.test(m.priority || ''); }) ? 'high' : 'low', count: openM.length, ar: openM.length + ' بلاغ صيانة مفتوح في السكن', en: openM.length + ' open housing maintenance requests', go: { page: 'sec', sec: 'acc', tab: 'log' } });
+      if (openM.length) out.tasks.push({ id: 'maint', sec: 'acc', level: openM.some(function (m) { return /high|urgent|عاجل/i.test(m.priority || ''); }) ? 'high' : 'low', count: openM.length, ar: openM.length + ' بلاغ صيانة مفتوح في السكن', en: openM.length + ' open housing maintenance requests', go: { page: 'sec', sec: 'acc', tab: 'log', sub: 'acc_maintenance', focus: { t: 'acc_maintenance', ids: openM.map(function (m) { return m.id; }) } } });
       ctx.T('proc_po').forEach(function (po) { try { var c = C.poCalc(ctx, po); if (c.state === 'Open' || c.state === 'Partially received') out.tasks.push({ id: 'po|' + po.id, sec: 'proc', level: 'low', ar: 'أمر الشراء ' + po.po_no + ' — ' + c.state, en: 'Purchase order ' + po.po_no + ' — ' + c.state, go: { page: 'sec', sec: 'proc', tab: 'entry', sub: 'lpo' } }); } catch (e) { } });
       // company cars: papers about to expire and periodic maintenance due
       try {
@@ -6440,7 +6454,7 @@ var Analytics = (function () {
       } catch (e) { }
       // stock to reorder
       ['pan', 'ofs'].forEach(function (P) {
-        try { C.panReport(ctx, { from: C.addDays(ctx.today, -30), to: ctx.today }, null, P).rows.filter(function (r) { return r.below; }).forEach(function (r) { out.stock.push({ id: 'stk|' + P + '|' + r.item.id, sec: P, level: r.close <= 0 ? 'high' : 'mid', item: r.item.name, close: r.close, par: num(r.item.par_level), unit: r.item.unit || '', ar: r.item.name, en: r.item.name, go: { page: 'sec', sec: P, tab: 'entry' } }); }); } catch (e) { }
+        try { C.panReport(ctx, { from: C.addDays(ctx.today, -30), to: ctx.today }, null, P).rows.filter(function (r) { return r.below; }).forEach(function (r) { out.stock.push({ id: 'stk|' + P + '|' + r.item.id, sec: P, level: r.close <= 0 ? 'high' : 'mid', item: r.item.name, close: r.close, par: num(r.item.par_level), unit: r.item.unit || '', ar: r.item.name, en: r.item.name, go: { page: 'sec', sec: P, tab: 'master', sub: P + '_items', focus: { t: P + '_items', ids: [r.item.id], label: r.item.name } } }); }); } catch (e) { }
       });
       // data-entry gaps
       [['meal', 'meal_log', 2], ['bus', 'bus_log', 3], ['veh', 'veh_log', 3], ['cln', 'cln_log', 3]].forEach(function (g) {
@@ -6935,6 +6949,11 @@ var U = (function () {
     opts = opts || {};
     var s = sch(t), st = el._lv = el._lv || { q: '', showCancel: false, period: opts.period === undefined ? null : opts.period, sort: null, f: {}, from: '', to: '', showF: false };
     st.f = st.f || {};
+    // opened from an alert / notification: show exactly the rows behind it (all periods), with a banner to clear it
+    if (opts.focus && opts.focus.t === t && !opts.focus._used) {
+      opts.focus._used = 1; st.ids = (opts.focus.ids || []).slice(); st.idsLabel = opts.focus.label || ''; st.period = null; st.q = ''; st.f = {}; st.from = ''; st.to = '';
+      if (st.ids.length === 1) setTimeout(function () { var r = (S.data[t] || []).filter(function (x) { return x.id === st.ids[0]; })[0]; if (r) openForm(t, r, Object.assign({ onSave: function () { listView(el, t, opts); } }, opts.formOpts || {})); }, 80);
+    }
     var cols = (opts.cols || s.fields.filter(function (f) { return f.t !== 'textarea' && !f.hidden && !/^doc_/.test(f.k) && ['key_terms', 'payment_details', 'photo_link'].indexOf(f.k) < 0; }).slice(0, opts.maxCols || 9).map(function (f) { return f.k; }));
     var dateField = s.fields.filter(function (f) { return f.t === 'date'; })[0];
     var hasPeriodF = s.fields.some(function (f) { return f.t === 'period'; });
@@ -6943,6 +6962,7 @@ var U = (function () {
     function data(skipF) {
       var a = rows(t, st.showCancel);
       if (opts.filter) a = a.filter(opts.filter);
+      if (st.ids) { var ids = {}; st.ids.forEach(function (x) { ids[x] = 1; }); a = a.filter(function (r) { return ids[r.id]; }); }
       if (st.period && opts.sec) {
         if (hasPeriodF) a = a.filter(function (r) { return r.period === st.period; });
         else if (dateField) { var rg = C.periodRange(st.period, ctx.cycle(opts.sec)); a = a.filter(function (r) { return C.inRange(r[dateField.k], rg.from, rg.to); }); }
@@ -6973,7 +6993,7 @@ var U = (function () {
       var nF = Object.keys(st.f).filter(function (k) { return st.f[k] !== '' && st.f[k] != null; }).length + (st.from || st.to ? 1 : 0);
       var sk = st.sort || (dateField ? '-' + dateField.k : '');
       var numCols = cols.filter(function (k) { var f = fieldOf(t, k); return isNumF(f) && !/rate|price|odometer|start_km|end_km|^sort$/.test(k); });
-      el.innerHTML = '<div class="bar lv-bar"><div class="lv-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="inp" placeholder="بحث…" value="' + esc(st.q) + '" data-lv-q></div>' +
+      el.innerHTML = (st.ids ? '<div class="lv-focus"><span>' + L('معروض من التنبيه', 'Shown from the alert') + (st.idsLabel ? ': <b>' + esc(st.idsLabel) + '</b>' : '') + ' — ' + st.ids.length + ' ' + L('سجل', 'record(s)') + '</span><button type="button" class="btn sm" data-lv-unfocus>' + L('عرض كل السجلات', 'Show all records') + '</button></div>' : '') + '<div class="bar lv-bar"><div class="lv-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="inp" placeholder="بحث…" value="' + esc(st.q) + '" data-lv-q></div>' +
         (periods ? '<select class="inp" style="max-width:190px" data-lv-p><option value="">كل الفترات</option>' + periods.map(function (k) { return '<option value="' + k + '"' + (k === st.period ? ' selected' : '') + '>' + C.periodLabel(k) + (k === ctx.currentPeriod(opts.sec) ? ' (الحالية)' : '') + '</option>'; }).join('') + '</select>' : '') +
         (filterable.length || dateField ? '<button class="btn' + (st.showF || nF ? ' on' : '') + '" data-lv-f><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 5h16l-6 8v5l-4 2v-7z"/></svg>' + 'فلاتر' + (nF ? ' <span class="cnt">' + nF + '</span>' : '') + '</button>' : '') +
         '<label class="chk" style="font-size:13px"><input type="checkbox" data-lv-c' + (st.showCancel ? ' checked' : '') + '> إظهار الملغي</label><span class="grow"></span>' +
@@ -6995,6 +7015,7 @@ var U = (function () {
         }).join('') : '<tr><td colspan="' + (cols.length + 1 + (opts.extra ? opts.extra.length : 0)) + '" class="empty">لا توجد بيانات</td></tr>') +
         '</tbody>' + (a.length > 1 && numCols.length ? '<tfoot><tr>' + cols.map(function (k, i) { return numCols.indexOf(k) >= 0 ? '<td class="n">' + esc(C.fmtMoney(C.sum(a, function (r) { return r[k]; }), 2).replace(/\.00$/, '')) + '</td>' : '<td>' + (i === 0 ? 'الإجمالي (' + a.length + ')' : '') + '</td>'; }).join('') + (opts.extra ? opts.extra.map(function () { return '<td></td>'; }).join('') : '') + '<td></td></tr></tfoot>' : '') +
         '</table></div>' + (a.length > lim ? '<div class="bar" style="justify-content:center;margin-top:8px"><button class="btn sm" data-lv-more>عرض ' + Math.min(500, a.length - lim) + ' إضافية</button></div>' : '');
+      var uf = $('[data-lv-unfocus]', el); if (uf) uf.onclick = function () { st.ids = null; st.idsLabel = ''; st.period = opts.period === undefined ? null : opts.period; render(); };
       var q = $('[data-lv-q]', el); q.oninput = function () { st.q = q.value; var pos = q.selectionStart; render(); var n = $('[data-lv-q]', el); n.focus(); n.setSelectionRange(pos, pos); };
       var p = $('[data-lv-p]', el); if (p) p.onchange = function () { st.period = p.value || null; render(); };
       var fb = $('[data-lv-f]', el); if (fb) fb.onclick = function () { st.showF = !st.showF; render(); };
@@ -9183,7 +9204,7 @@ var Dash = (function () {
       return card(w, '<div class="al-g">' + order.map(function (sc) {
         var list = by[sc].slice().sort(function (x, y) { return (rank[x.level] || 1) - (rank[y.level] || 1); });
         return '<div class="al-s" style="--c:' + Charts.color(0, sc) + '"><div class="al-h"><b>' + esc(UX.secLabel(sc)) + '</b><span class="al-n">' + list.length + '</span></div>' +
-          list.slice(0, 2).map(function (a) { return '<div class="al-i"><span class="dot ' + a.level + '"></span><span>' + esc(L(a.text, a.en)) + '</span></div>'; }).join('') +
+          list.slice(0, 2).map(function (a) { return '<button type="button" class="al-i" data-algo=\'' + esc(JSON.stringify(a.go || { page: 'sec', sec: A.base(a.sec), tab: 'entry' })) + '\'><span class="dot ' + a.level + '"></span><span>' + esc(L(a.text, a.en)) + '</span></button>'; }).join('') +
           (list.length > 2 ? '<button type="button" class="lnk al-more" data-gocc>+' + (list.length - 2) + ' ' + L('أخرى', 'more') + '</button>' : '') + '</div>';
       }).join('') + '</div>', { tag: '<button class="lnk" data-gocc>' + L('مركز التحكم', 'Control Center') + ' · ' + alerts.length + '</button>' });
     };
@@ -9201,6 +9222,7 @@ var Dash = (function () {
 
     /* ---------- events ---------- */
     var rr = function () { render(m, go); };
+    $$('[data-algo]', m).forEach(function (x) { x.onclick = function () { var g; try { g = JSON.parse(x.getAttribute('data-algo')); } catch (e) { return; } go(g); }; });
     var dcy = $('[data-dcyc]', m); if (dcy) dcy.onclick = function () { go({ page: 'settings', tab: 'periods' }); };
     $$('[data-dg]', m).forEach(function (x) { x.onclick = function () { st.gran = x.dataset.dg; st.anchor = null; rr(); }; });
     $$('[data-dst]', m).forEach(function (x) { x.onclick = function () { var d = +x.dataset.dst; st.anchor.v = d === 0 ? A.defaultAnchor(ctx, gran) : A.shift(ctx, gran, anchor, d); rr(); }; });
@@ -12505,6 +12527,7 @@ var App = (function () {
       '<div id="st-hint"></div><div id="st-list"></div>';
     $$('[data-st]', z).forEach(function (a) { a.onclick = function (e) { e.preventDefault(); route.sub = a.dataset.st; subTables(z, tables, o); }; });
     var lo = { sec: o.sec, extra: LOG_EXTRA[cur] };
+    if (route.focus && route.focus.t === cur) { lo.focus = route.focus; route.focus = null; }
     if (cur === 'veh_log') lo.cols = ['date', 'vehicle_id', 'time_in', 'time_out', 'start_km', 'end_km', 'route', 'notes'];
     var isLog = S.schema[cur].log || ['veh_approvals', 'core_settlements', 'gen_savings', 'gen_achievements'].indexOf(cur) >= 0;
     lo.period = isLog ? (o.period || null) : undefined;
