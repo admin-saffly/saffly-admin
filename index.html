@@ -2791,6 +2791,10 @@ html[data-theme=dark] table.t tbody tr.click td.hc{background:rgba(59,130,246,.2
 
 .t s.ded-x{color:var(--grey);text-decoration-thickness:1.5px}
 
+.hm-ri{position:relative}
+.hm-ri .hm-out{margin-inline-start:auto;flex:none;opacity:.85}
+.hm-ri .hm-out:hover{opacity:1;border-color:var(--bad,#DC2626);color:var(--bad,#DC2626)}
+
 /* ============ Report pages (A4) — same look as the Excel statements ============ */
 .rp{width:210mm;min-height:297mm;background:#fff;margin:0 auto 16px;padding:10mm 9mm;box-shadow:0 2px 10px rgba(0,0,0,.08);
   font-family:"SAF Sans",Calibri,"Segoe UI",Carlito,Arial,sans-serif;color:#2F3B45;font-size:8.2pt;direction:ltr;text-align:left;line-height:1.35;position:relative}
@@ -10381,13 +10385,18 @@ var Homes = (function () {
         '<div class="empty">' + L('لا يوجد عقد مربوط بالوحدة', 'No contract linked to this unit') + (S.schema.acc_contracts.canWrite ? '<div style="margin-top:10px"><button type="button" class="btn sm pri" data-fix="' + esc(u.id) + '|contract">' + L('سجّل العقد', 'Record the contract') + '</button></div>' : '') + '</div>') + '</div>';
       // residents
       h += '<div class="dcard"><div class="dc-h"><h3>' + IC.users + L('السكان الآن', 'Residents now') + '</h3>' + occPill(o) + '</div>' + (o.people.length ? '<div class="hm-res">' + o.history.filter(function (x) { return (!x.move_in || x.move_in <= td) && (!x.move_out || x.move_out > td); }).map(function (x) { var p = ctx.byId('acc_people', x.person_id) || {}; return '<div class="hm-ri" data-hres="' + esc(x.id) + '"><span class="cav">' + esc(String(personName(p) || '?').charAt(0)) + '</span><div><b>' + esc(personName(p)) + (p.company && p.company !== 'SAFfly' ? ' <span class="hm-co">' + esc(p.company) + '</span>' : '') + '</b><small>' + esc([p.full_name_ar && p.full_name_ar !== personName(p) ? p.full_name_ar : '', p.title, x.move_in ? L('من ', 'since ') + C.fmtDate(x.move_in) : ''].filter(Boolean).join(' · ')) + '</small></div>' + (x.move_out ? pill('warn', L('خروج ', 'Out ') + C.fmtDate(x.move_out)) : '') + '</div>'; }).join('') + '</div>' : '<div class="empty">' + L('لا يوجد سكان حاليًا', 'No residents now') + '</div>') +
-        (S.schema.acc_housing.canWrite ? '<div class="cf-da" style="margin-top:10px"><button type="button" class="btn sm" data-hadd="acc_housing">' + IC.plus + L('تسكين شخص', 'Assign a resident') + '</button></div>' : '') + '</div>';
+        (S.schema.acc_housing.canWrite ? '<div class="cf-da" style="margin-top:10px"><button type="button" class="btn sm" data-hadd="acc_housing">' + IC.plus + L('تسكين شخص', 'Assign a resident') + '</button>' +
+          (o.people.length ? '<button type="button" class="btn sm" data-hout="*">' + L('إخلاء الوحدة', 'Vacate the unit') + '</button>' : '') + '</div>' : '') + '</div>';
       // map
       h += '<div class="dcard"><div class="dc-h"><h3>' + IC.pin + L('الموقع', 'Location') + '</h3>' + (hasGps(u) ? '<a class="btn sm ghost" href="' + esc(gmaps(u)) + '" target="_blank" rel="noopener">' + L('خرائط جوجل ↗', 'Google Maps ↗') + '</a>' : '') + '</div>' + (hasGps(u) ? '<div class="hm-mini" data-mini></div>' : '<div class="empty">' + L('الموقع غير محدد. الصق رابط الموقع من خرائط جوجل في بيانات الوحدة، أو حدّده بالضغط على الخريطة.', 'No location yet. Paste the Google Maps link in the unit details, or pick it on the map.') + '<div style="margin-top:10px"><button type="button" class="btn sm pri" data-fix="' + esc(u.id) + '|gps">' + IC.target + L('حدد على الخريطة', 'Pick on the map') + '</button></div></div>') + '</div>';
       h += '</div>';
       z.innerHTML = h;
       if (hasGps(u)) miniMap($('[data-mini]', z), u);
-      $$('[data-hres]', z).forEach(function (r) { r.onclick = function () { form('acc_housing', ctx.byId('acc_housing', r.dataset.hres), null, redo); }; });
+      $$('[data-hres]', z).forEach(function (r) {
+        r.onclick = function () { form('acc_housing', ctx.byId('acc_housing', r.dataset.hres), null, redo); };
+        if (S.schema.acc_housing.canWrite) { var b = document.createElement('button'); b.type = 'button'; b.className = 'btn sm hm-out'; b.textContent = L('خروج', 'Move out'); b.onclick = function (e) { e.stopPropagation(); moveOut(u, [r.dataset.hres], redo); }; r.appendChild(b); }
+      });
+      var vb = $('[data-hout]', z); if (vb) vb.onclick = function () { moveOut(u, $$('[data-hres]', z).map(function (r) { return r.dataset.hres; }), redo); };
       $$('[data-cedit]', z).forEach(function (b) { b.onclick = function () { form('acc_contracts', ctx.byId('acc_contracts', b.dataset.cedit), null, redo); }; });
     } else if (st.tab === 'docs') {
       z.innerHTML = '<div class="dcard"><div class="dc-h"><h3>' + IC.doc + L('مستندات العقد والوحدة', 'Contract & unit papers') + '</h3>' + ring(o.docsDone, o.docsNeed) + '</div>' + (u.contract_key ? '<div class="hint">' + L('تُسجَّل المستندات على العقد ', 'Papers are filed on contract ') + '<b>' + esc(u.contract_key) + '</b>' + L(' — إذا شمل العقد أكثر من وحدة يظهر في جميعها.', ' — if the contract covers more than one unit they show in all of them.') + '</div>' : '') + '<div class="hm-docs">' + docRows(o, canDoc) + '</div>' +
@@ -10418,6 +10427,26 @@ var Homes = (function () {
     var tl = window.LF.tileLayer(T[0], { maxZoom: 19, maxNativeZoom: T[2], attribution: T[1] }).addTo(map);
     tl.on('tileerror', function () { if (++fails > 3 && !swapped) { swapped = true; map.removeLayer(tl); window.LF.tileLayer(OSM[0], { maxZoom: 19, attribution: OSM[1] }).addTo(map); } });
     return tl;
+  }
+  /* move out: the stay keeps its history — only the move-out date is written; the bed is free from that day */
+  function moveOut(u, ids, done) {
+    var ctx = U.ctx(), recs = ids.map(function (id) { return ctx.byId('acc_housing', id); }).filter(Boolean); if (!recs.length) return;
+    var td = today(), names = recs.map(function (h) { return personName(ctx.byId('acc_people', h.person_id) || {}); });
+    var ov = U.modal(recs.length > 1 ? L('إخلاء الوحدة', 'Vacate the unit') : L('تسجيل خروج', 'Record a move-out'),
+      '<p>' + esc(U.refLabel('acc_units', u)) + ' — <b>' + names.map(esc).join('، ') + '</b></p>' +
+      '<div class="fld"><label>' + L('تاريخ الخروج', 'Move-out date') + ' <span class="req">*</span></label><input type="date" id="mo-d" value="' + td + '"></div>' +
+      '<div class="hint">' + L('يبقى سجل الإقامة كما هو للتاريخ، ويُكتب تاريخ الخروج فقط، ويصبح السرير متاحًا من هذا اليوم. للنقل إلى وحدة أخرى: سجّل الخروج هنا ثم «تسكين شخص» في الوحدة الجديدة.', 'The stay is kept for history; only the move-out date is written and the bed is free from that day. To move someone: record the move-out here, then «Assign a resident» in the new unit.') + '</div>',
+      '<button class="btn pri" data-ok>' + L('تسجيل الخروج', 'Record move-out') + '</button><button class="btn" data-close>' + L('رجوع', 'Back') + '</button>', { sm: 1 });
+    U.$('[data-ok]', ov).onclick = function () {
+      var d = U.$('#mo-d', ov).value; if (!d) { U.$('#mo-d', ov).parentNode.classList.add('err'); return; }
+      var bad = recs.filter(function (h) { return h.move_in && d < h.move_in; });
+      if (bad.length) { U.toast(L('تاريخ الخروج قبل تاريخ الدخول', 'Move-out is before move-in'), 1); return; }
+      U.call('api_saveBatch', 'acc_housing', recs.map(function (h) { return { id: h.id, move_out: d }; }), []).then(function (res) {
+        if (!res.ok) { U.toast((res.batchErrors || []).map(function (e) { return (e.errors || []).join('، '); }).join(' | ') || U.errMsg(res), 1); return; }
+        (res.rows || []).forEach(function (r) { U.upsert('acc_housing', r); }); U.rebuild(); U.close(ov);
+        U.toast(res.pending ? L('أُرسل للاعتماد', 'Sent for approval') : L('تم تسجيل الخروج ✓', 'Move-out recorded ✓')); if (done) done();
+      }).catch(function (e) { U.toast(U.errMsg(e), 1); });
+    };
   }
   function stateOf(o) { return o.closed ? 'mute' : (o.cState === 'Urgent' || o.cState === 'Expired' || !o.contract) ? 'bad' : (o.missing.length || o.cState === 'Expiring') ? 'warn' : 'ok'; }
   function marker(o) {
