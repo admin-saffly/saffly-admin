@@ -1033,6 +1033,7 @@ html[dir=rtl] .drow.has{box-shadow:inset -3px 0 0 var(--acc),var(--sh-1)}
 .rep-scale{transform-origin:top right}
 html[dir=ltr] .rep-scale{transform-origin:top left}
 .rep-zone .rp{box-shadow:0 12px 34px -14px rgba(15,42,107,.35)!important;border-radius:4px}
+@media print{.rep-zone .rp{box-shadow:none!important;border-radius:0}}
 
 /* ---------- 15. dashboard ---------- */
 .dash{--gap:16px}
@@ -1293,7 +1294,7 @@ body.present:after{content:"Esc";position:fixed;bottom:14px;inset-inline-end:16p
   .layout{display:block}
   .rep-zone{overflow:visible;padding:0;background:var(--surface);border:0}
   .rep-scale{transform:none!important;width:auto!important;height:auto!important}
-  .rp{box-shadow:none!important;margin:0!important;width:auto!important;min-height:0!important;padding:0!important}
+  .rp{box-shadow:none!important;margin:0!important;min-height:0!important}
   .rp + .rp{break-before:page}
   .rp tr,.rp .avoid{break-inside:avoid}
   .rp thead{display:table-header-group}
@@ -4568,7 +4569,7 @@ var Reports = (function () {
   }
   function kband(items) {
     return '<div class="kband" style="grid-template-columns:repeat(' + items.length + ',1fr)">' + items.map(function (k) {
-      return '<div class="k' + (k.hl ? ' hl' : '') + '"><div class="v' + (String(k.v).length > 10 ? ' sm' : '') + '">' + k.v + '</div><div class="l">' + esc(k.l) + '</div>' + (k.s ? '<div class="s">' + k.s + '</div>' : '') + '</div>';
+      return '<div class="k' + (k.hl ? ' hl' : '') + '"><div class="v' + (String(k.v).replace(/<[^>]*>/g, '').length > (items.length >= 7 ? 8 : 10) ? ' sm' : '') + '">' + k.v + '</div><div class="l">' + esc(k.l) + '</div>' + (k.s ? '<div class="s">' + k.s + '</div>' : '') + '</div>';
     }).join('') + '</div>';
   }
   function table(cols, rows, foot, opts) {
@@ -4677,9 +4678,9 @@ var Reports = (function () {
       { h: 'Extra KM', f: function (r) { return I(r.xkm); }, cls: 'n' }, { h: 'Extra hrs', f: function (r) { return D1(r.xhr).replace(/\.0$/, ''); }, cls: 'n' },
       { h: 'Rent', f: function (r) { return M(r.rent); }, cls: 'n' }, { h: 'Extras', f: function (r) { return Z(r.extras); }, cls: 'n' }, { h: 'Fuel & other', f: function (r) { return Z(r.fuel + r.maint); }, cls: 'n' }].concat(anyDed ? [{ h: 'Deduct.', f: function (r) { return r.deduction ? '(' + M(r.deduction) + ')' : '0'; }, cls: 'n' }] : []).concat([
       { h: 'TOTAL (EGP)', f: function (r) { return '<b>' + M(r.total) + '</b>'; }, cls: 'n' }, { h: 'EGP/KM', f: function (r) { return r.egpKm ? M(r.egpKm, 2) : ''; }, cls: 'n' },
-      { h: 'Status', f: function (r) { return st(r.state); }, cls: 'c' }, { h: 'Notes', f: function (r) { return esc(r.note); }, cls: 'wrap', w: '17%' }]), rows,
+      { h: 'Status', f: function (r) { return st(r.state); }, cls: 'c' }]), rows,
       [{ v: '' }, { v: 'TOTAL — ' + rows.length + ' vehicles', span: 4 }, { v: I(T.trips), cls: 'n' }, { v: I(T.km), cls: 'n' }, { v: I(T.xkm), cls: 'n' }, { v: D1(T.xhr).replace(/\.0$/, ''), cls: 'n' },
-        { v: M(T.rent), cls: 'n' }, { v: M(T.extras), cls: 'n' }, { v: M(T.fuelMaint), cls: 'n' }].concat(anyDed ? [{ v: '(' + M(C.sum(rows, function (r) { return r.deduction; })) + ')', cls: 'n' }] : []).concat([{ v: M(T.total), cls: 'n' }, { v: T.egpKm ? M(T.egpKm, 2) : '', cls: 'n' }, { span: 2 }]));
+        { v: M(T.rent), cls: 'n' }, { v: M(T.extras), cls: 'n' }, { v: M(T.fuelMaint), cls: 'n' }].concat(anyDed ? [{ v: '(' + M(C.sum(rows, function (r) { return r.deduction; })) + ')', cls: 'n' }] : []).concat([{ v: M(T.total), cls: 'n' }, { v: T.egpKm ? M(T.egpKm, 2) : '', cls: 'n' }, { span: 1 }]));
     h += taxBox(rep.taxes, '', false, rep.settlements);
     var N = rep.notes;
     h += '<div class="cols3 avoid" style="margin-top:10px"><div><h4>Notes</h4><div class="notes">' +
@@ -6520,6 +6521,28 @@ var U = (function () {
   function esc(s) { return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function $(sel, root) { return (root || document).querySelector(sel); }
   function $$(sel, root) { return [].slice.call((root || document).querySelectorAll(sel)); }
+  /* PDF file name: «Save as PDF» uses the page title, so the title is set to "SAFfly - <report> - <period> - <date>" while printing */
+  var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function dParts(s) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || '')); return m ? { y: +m[1], m: +m[2] - 1, d: +m[3] } : null; }
+  function rangeName(from, to) {
+    var a = dParts(from), b = dParts(to); if (!a) return ''; if (!b) b = a;
+    if (a.y === b.y && a.m === b.m && a.d === 1 && b.d === new Date(Date.UTC(b.y, b.m + 1, 0)).getUTCDate()) return MON[a.m] + ' ' + a.y;          // a whole calendar month
+    if (from === to) return a.d + ' ' + MON[a.m] + ' ' + a.y;
+    if (a.y === b.y && a.m === 0 && a.d === 1 && b.m === 11 && b.d === 31) return 'Year ' + a.y;
+    if (a.y === b.y) return a.d + ' ' + MON[a.m] + ' to ' + b.d + ' ' + MON[b.m] + ' ' + b.y;
+    return a.d + ' ' + MON[a.m] + ' ' + a.y + ' to ' + b.d + ' ' + MON[b.m] + ' ' + b.y;
+  }
+  function fileName(parts) {
+    var t = ((S && S.today) || '').slice(0, 10), td = dParts(t);
+    return ['SAFfly'].concat(parts.filter(function (x) { return x && String(x).trim(); })).concat(td ? [(td.d < 10 ? '0' : '') + td.d + '-' + MON[td.m] + '-' + td.y] : [])
+      .map(function (x) { return String(x).replace(/<[^>]*>/g, '').replace(/[\\/:*?"<>|→←]+/g, '-').replace(/\s+/g, ' ').trim(); }).join(' - ');
+  }
+  function printAs(name, fn) {
+    var old = document.title; document.title = name;
+    var back = function () { document.title = old; window.removeEventListener('afterprint', back); };
+    window.addEventListener('afterprint', back); setTimeout(back, 4000);
+    fn();
+  }
   function toast(msg, err, ms) {
     var t = document.createElement('div'); t.className = 'toast' + (err ? ' err' : ''); t.textContent = msg;
     document.body.appendChild(t); setTimeout(function () { t.remove(); }, ms || (err ? 6000 : 2600));
@@ -7018,7 +7041,7 @@ var U = (function () {
   }
 
   return {
-    call: call, quiet: quiet, token: token, esc: esc, $: $, $$: $$, toast: toast, errMsg: errMsg, modal: modal, close: close, confirmBox: confirmBox, promptBox: promptBox,
+    call: call, quiet: quiet, token: token, esc: esc, $: $, $$: $$, toast: toast, fileName: fileName, rangeName: rangeName, printAs: printAs, errMsg: errMsg, modal: modal, close: close, confirmBox: confirmBox, promptBox: promptBox,
     boot: boot, rebuild: rebuild, rows: rows, upsert: upsert, sch: sch, fieldOf: fieldOf, secName: secName, refLabel: refLabel, refSorted: refSorted, valText: valText,
     fieldHtml: fieldHtml, readFields: readFields, makeThumb: makeThumb, Images: Images, fileB64: fileB64, validate: validate, showErrs: showErrs, openForm: openForm, listView: listView, periodOptions: periodOptions,
     userName: function () { return S && S.user ? (I18N.get() === 'en' && S.user.name_en ? S.user.name_en : S.user.name) : ''; },
@@ -8217,7 +8240,7 @@ var Entry = (function () {
       var old = document.getElementById('pc-print'); if (old) old.remove();
       var d = document.createElement('div'); d.id = 'pc-print'; d.dir = document.documentElement.dir || 'rtl'; d.innerHTML = sheetHtml(countModel(st.date), blank); document.body.appendChild(d);
       document.body.classList.add('print-cnt');
-      setTimeout(function () { window.print(); setTimeout(function () { document.body.classList.remove('print-cnt'); d.remove(); }, 400); }, 60);
+      setTimeout(function () { U.printAs(U.fileName([blank ? 'Pantry count sheet' : 'Pantry stock count', U.rangeName(st.date, st.date)]), function () { window.print(); }); setTimeout(function () { document.body.classList.remove('print-cnt'); d.remove(); }, 400); }, 60);
     }
     /* every item: what came in, what went out, what is left now, its value, last receipt and the re-order level */
     function stkView() {
@@ -9150,7 +9173,7 @@ var Dash = (function () {
       try { if (on && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen(); else if (!on && document.fullscreenElement) document.exitFullscreen(); } catch (e) { }
     };
     if (!Dash._esc) { Dash._esc = 1; document.addEventListener('fullscreenchange', function () { if (!document.fullscreenElement) document.body.classList.remove('present'); }); document.addEventListener('keydown', function (e) { if (e.key === 'Escape') document.body.classList.remove('present'); }); }
-    var dpb = $('[data-dprint]', m); if (dpb) dpb.onclick = function () { document.body.classList.add('print-dash'); setTimeout(function () { window.print(); setTimeout(function () { document.body.classList.remove('print-dash'); }, 300); }, 50); };
+    var dpb = $('[data-dprint]', m); if (dpb) dpb.onclick = function () { document.body.classList.add('print-dash'); setTimeout(function () { U.printAs(U.fileName(['Admin Dashboard']), function () { window.print(); }); setTimeout(function () { document.body.classList.remove('print-dash'); }, 300); }, 50); };
     $$('[data-quick]', m).forEach(function (x) { x.onclick = function () { go({ page: 'sec', sec: x.dataset.quick, tab: 'entry' }); }; });
     $$('[data-rep]', m).forEach(function (x) { x.onclick = function () { go({ page: 'sec', sec: x.dataset.rep, tab: 'reports' }); }; });
     $$('[data-kgo]', m).forEach(function (k) { k.onclick = function (e) { if (e.target.closest('[data-dk]')) return; go(JSON.parse(k.getAttribute('data-kgo'))); }; });
@@ -9395,7 +9418,7 @@ var Fin = (function () {
     $('[data-fall]', m).onclick = function () { st.secs = secs.length === all.length ? [] : all.slice(); rr(); };
     $$('[data-fbud]', m).forEach(function (x) { x.onclick = function () { budgets(gran === 'month' ? anchor : ctx.currentPeriod('gen'), rr); }; });
     $('[data-fx]', m).onclick = function () { exportXlsx(ctx, gran, b, pb, mx, used, bv, an, ins, sup); };
-    $('[data-fp]', m).onclick = function () { document.body.classList.add('print-dash'); setTimeout(function () { window.print(); setTimeout(function () { document.body.classList.remove('print-dash'); }, 300); }, 60); };
+    $('[data-fp]', m).onclick = function () { document.body.classList.add('print-dash'); setTimeout(function () { U.printAs(U.fileName(['Finance & Analytics']), function () { window.print(); }); setTimeout(function () { document.body.classList.remove('print-dash'); }, 300); }, 60); };
     $$('[data-kgo]', m).forEach(function (k) { k.onclick = function () { var t = k.dataset.kgo; if (t === 'budget') budgets(gran === 'month' ? anchor : ctx.currentPeriod('gen'), rr); else { var c = $('[data-card="anomalies"]', m); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }; });
     /* drill-downs */
     var trend = $('[data-card="trend"]', m); if (trend) trend._drill = function (d) { var bb = d.index != null ? mx.buckets[d.index] : b; if (d.key) UX.drill(d.key, bb, go); else if (d.index != null) { st.anchor.v = bb.key; rr(); } };
@@ -12575,8 +12598,18 @@ var App = (function () {
     $('[data-psetup]', z).onclick = function () { P.psOpen = !P.psOpen; var rw = $('.ps-row', z); rw.hidden = !P.psOpen; this.setAttribute('aria-expanded', P.psOpen ? 'true' : 'false'); };
     $$('[data-ps]', z).forEach(function (b) { b.onclick = function () { P[b.dataset.ps] = b.dataset.v; reportsPage(z, sec); }; });
     $('[data-rxl]', z).onclick = function () { reportExcel($('#rep-scale', z), r); };
-    $('[data-print]', z).onclick = function () { var sc = $('#rep-scale', z); sc.style.transform = ''; sc.style.width = ''; sc.style.height = ''; printFit(sc); window.print(); setTimeout(function () { printUnfit(sc); fit(); }, 300); };
-    if (!window.__pfBound) { window.__pfBound = 1; window.addEventListener('beforeprint', function () { var sc = document.getElementById('rep-scale'); if (sc) { sc.style.transform = ''; printFit(sc); } }); window.addEventListener('afterprint', function () { var sc = document.getElementById('rep-scale'); if (sc) printUnfit(sc); }); }
+    var pdfName = function () { // the first page's title names the file (a statement with one page per car is named after the statement)
+      var t1 = $('#rep-scale .rp .rtitle', z), last = Reports.last() || {};
+      return U.fileName([(t1 && t1.textContent.trim()) || last.title || r.name, P.range ? U.rangeName(P.range.from, P.range.to) : '']);
+    };
+    window.__repPdfName = pdfName;
+    $('[data-print]', z).onclick = function () { var sc = $('#rep-scale', z); sc.style.transform = ''; sc.style.width = ''; sc.style.height = ''; printFit(sc); U.printAs(pdfName(), function () { window.print(); }); setTimeout(function () { printUnfit(sc); fit(); }, 300); };
+    if (!window.__pfBound) {
+      window.__pfBound = 1;
+      // Ctrl+P on a report: same fitting and the same file name as the print button
+      window.addEventListener('beforeprint', function () { var sc = document.getElementById('rep-scale'); if (sc) { sc.style.transform = ''; printFit(sc); if (window.__repPdfName && !window.__pfTitle) { window.__pfTitle = document.title; document.title = window.__repPdfName(); } } });
+      window.addEventListener('afterprint', function () { var sc = document.getElementById('rep-scale'); if (sc) printUnfit(sc); if (window.__pfTitle) { document.title = window.__pfTitle; window.__pfTitle = null; } });
+    }
     window.onresize = fit;
     draw();
   }
@@ -12597,7 +12630,7 @@ var App = (function () {
       sheets.push({ name: nm, title: title + (nm && !/^(Table|جدول) /.test(nm) ? ' — ' + nm : ''), subtitle: sub, columns: head.map(function (h, ci) { return { h: h, t: types[ci] }; }), rows: body.map(function (rw) { return head.map(function (h, ci) { return conv(rw[ci], types[ci]); }); }), totals: foot ? head.map(function (h, ci) { return conv(foot[ci], types[ci]); }) : null });
     });
     if (!sheets.length) { U.toast(L('لا يحتوي هذا التقرير على جداول للتصدير', 'This report has no tables to export'), 1); return; }
-    XLSX.download(('SAFfly - ' + title + ' - ' + U.S().today).replace(/[\\\/:*?"<>|]/g, ' '), sheets, { rtl: !en && !/[a-z]{4}/i.test(title), title: title });
+    XLSX.download(window.__repPdfName ? window.__repPdfName() : U.fileName([title]), sheets, { rtl: !en && !/[a-z]{4}/i.test(title), title: title });
   }
   function firstAccMonth() { var d = U.rows('acc_contracts').map(function (c) { return c.statement_from || c.start; }).filter(Boolean).sort()[0]; return d ? C.monthStart(d) : C.monthStart(U.S().today); }
 
