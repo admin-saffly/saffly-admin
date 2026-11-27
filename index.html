@@ -2796,6 +2796,22 @@ html[data-theme=dark] table.t tbody tr.click td.hc{background:rgba(59,130,246,.2
 .hm-ri .hm-out{margin-inline-start:auto;flex:none;opacity:.85}
 .hm-ri .hm-out:hover{opacity:1;border-color:var(--bad,#DC2626);color:var(--bad,#DC2626)}
 
+.f-cyc{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;padding:8px 12px;border-radius:10px;background:var(--soft);border:1px dashed var(--line);font-size:12.5px;color:var(--mute);line-height:1.6}
+.f-cyc span{flex:1;min-width:0}
+.f-cyc b{color:var(--ink);font-weight:700}
+
+/* dashboard alerts grouped by section */
+.al-g{display:grid;grid-template-columns:1fr;gap:10px;max-height:420px;overflow:auto;padding-inline-end:2px}
+.al-s{border:1px solid var(--line);border-inline-start:3px solid var(--c);border-radius:12px;padding:9px 12px;background:var(--surface)}
+.al-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.al-h b{font-size:13px}
+.al-n{min-width:24px;height:22px;padding:0 7px;border-radius:999px;background:var(--soft);color:var(--ink);font-weight:800;font-size:12px;display:inline-flex;align-items:center;justify-content:center}
+.al-i{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--ink-2);line-height:1.5;padding:2px 0}
+.al-i .dot{margin-top:6px;flex:none}
+.al-more{font-size:12px;margin-top:2px}
+.dsec-d{font-size:11px;color:var(--grey);margin-top:-2px;margin-bottom:2px;text-align:start}
+html[dir=rtl] .dsec-d{text-align:right}
+
 /* ============ Report pages (A4) — same look as the Excel statements ============ */
 .rp{width:210mm;min-height:297mm;background:#fff;margin:0 auto 16px;padding:10mm 9mm;box-shadow:0 2px 10px rgba(0,0,0,.08);
   font-family:"SAF Sans",Calibri,"Segoe UI",Carlito,Arial,sans-serif;color:#2F3B45;font-size:8.2pt;direction:ltr;text-align:left;line-height:1.35;position:relative}
@@ -9071,10 +9087,10 @@ var Dash = (function () {
 
   function render(m, go) {
     var S = U.S(), ctx = U.ctx(), en = I18N.get() === 'en';
-    var all = A.expand(S.sections.filter(function (s) { return s.code !== 'gen' && s.code !== 'proc'; }).map(function (s) { return s.code; }));
+    var all = A.expand(S.sections.filter(function (s) { return s.code !== 'gen' && s.code !== 'proc' && s.code !== 'emp' && s.code !== 'hr'; }).map(function (s) { return s.code; }));
     if (!st.secs) st.secs = all.slice();
     var secs = st.secs.filter(function (s) { return all.indexOf(s) >= 0; }); if (!secs.length) secs = all.slice();
-    if (!st.anchor || st.anchor.gran !== st.gran) st.anchor = { gran: st.gran, v: st.gran === 'month' ? C.periodShift(ctx.currentPeriod('gen'), -1) : A.defaultAnchor(ctx, st.gran) };
+    if (!st.anchor || st.anchor.gran !== st.gran) st.anchor = { gran: st.gran, v: st.gran === 'month' ? ctx.currentPeriod('gen') : A.defaultAnchor(ctx, st.gran) };
     var gran = st.gran, anchor = st.anchor.v, b = A.bucket(ctx, gran, anchor), pb = A.bucket(ctx, gran, A.shift(ctx, gran, anchor, -1));
     var daily = A.isDailyGran(gran, b), used = daily ? secs.filter(A.isDaily) : secs;
     var isCur = b.to >= ctx.today && b.from <= ctx.today;
@@ -9109,6 +9125,13 @@ var Dash = (function () {
       '<div class="f-fld f-secs">' + L('الأقسام', 'Sections') + '<div class="d-chips">' + (window.SEC_GROUPS || [{ secs: all }]).map(function (g) { var l = g.secs.filter(function (s) { return all.indexOf(s) >= 0; }); return l.length ? '<span class="chip-g">' + (g.ar ? '<em>' + L(g.ar, g.en) + '</em>' : '') + l.map(function (s) { return '<button type="button" data-ds="' + s + '" class="' + (secs.indexOf(s) >= 0 ? 'on' : '') + '" style="--c:' + Charts.color(0, s) + '"><i></i>' + esc(UX.secLabel(s)) + (daily && !A.isDaily(s) ? ' <em class="mo">' + L('شهري', 'monthly') + '</em>' : '') + '</button>'; }).join('') + '</span>' : ''; }).join('') +
       '<label class="chk f-ex" title="' + esc(exNames().join('، ')) + '"><input type="checkbox" data-dex' + (ctx.inclEx ? ' checked' : '') + '> ' + L('ضم الوحدات المستبعدة', 'Include excluded units') + (exNames().length ? ' <small>(' + esc(exNames().join('، ')) + ')</small>' : '') + '</label>' + '<button type="button" class="lnk" data-dsall>' + (secs.length === all.length ? L('إلغاء الكل', 'Clear') : L('تحديد الكل', 'Select all')) + '</button></div></div></div></div>';
 
+    // month / year: every section is counted over its own accounting month (Settings → Periods); show which dates each uses
+    if (gran === 'month' || gran === 'year' || (gran === 'range' && b.whole)) {
+      var diff = used.map(function (s2) { var rg = A.secRange(ctx, s2, b); return { s: s2, rg: rg }; }).filter(function (x) { return x.rg.from !== b.from || x.rg.to !== b.to; });
+      h = h.replace(/<\/div><\/div><\/div><\/div>$/, '') + '</div></div></div><div class="f-cyc"><span>' + L('حسب دورة كل قسم', 'Each section by its own accounting month') + ' — ' + L('القياسي: ', 'standard: ') + '<bdi dir="ltr">' + C.fmtDate(b.from) + ' → ' + C.fmtDate(b.to) + '</bdi>' +
+        (diff.length ? ' · ' + L('مختلف: ', 'different: ') + diff.map(function (x) { return '<b>' + esc(UX.secLabel(x.s)) + '</b> <bdi dir="ltr">' + C.fmtDate(x.rg.from) + ' → ' + C.fmtDate(x.rg.to) + '</bdi>'; }).join(' · ') : ' · ' + L('كل الأقسام على الدورة نفسها', 'all sections on the same cycle')) +
+        ' · ' + L('الأرقام قبل الضرائب', 'figures before taxes') + '</span><button type="button" class="lnk" data-dcyc>' + L('تعديل الفترات', 'Change periods') + '</button></div></div>';
+    }
     /* ---------- widgets ---------- */
     var W = {};
     W.kpis = function () {
@@ -9147,11 +9170,23 @@ var Dash = (function () {
     W.sections = function (w) {
       return card(w, '<div class="d-secs">' + curBy.concat(daily ? secs.filter(function (s) { return !A.isDaily(s); }).map(function (s) { return { sec: s, monthly: 1 }; }) : []).map(function (x) {
         if (x.monthly) return '<div class="dsec muted" style="--c:' + Charts.color(0, x.sec) + '"><div class="dsec-h"><b>' + esc(UX.secLabel(x.sec)) + '</b></div><div class="dsec-m">' + I.clock + L('يُحاسَب شهريًا', 'Billed monthly') + '</div><div class="dsec-a"><button class="btn sm" data-rep="' + A.base(x.sec) + '">' + L('التقارير', 'Reports') + '</button></div></div>';
-        return '<div class="dsec" style="--c:' + Charts.color(0, x.sec) + '"><div class="dsec-h"><b>' + esc(UX.secLabel(x.sec)) + '</b>' + UX.deltaPill(A.change(x.v, x.prev), true) + '</div><div class="dsec-v" data-dk="' + x.sec + '">' + money(x.v) + ' <small>EGP</small></div>' + Charts.spark(x.series, Charts.color(0, x.sec)) +
+        return '<div class="dsec" style="--c:' + Charts.color(0, x.sec) + '"><div class="dsec-h"><b>' + esc(UX.secLabel(x.sec)) + '</b>' + UX.deltaPill(A.change(x.v, x.prev), true) + '</div><div class="dsec-v" data-dk="' + x.sec + '">' + money(x.v) + ' <small>EGP</small></div>' + (function () { var rg = A.secRange(ctx, x.sec, b); return '<div class="dsec-d" dir="ltr">' + rg.from.slice(8, 10) + ' ' + C.fmtDate(rg.from).slice(3, 6) + ' → ' + rg.to.slice(8, 10) + ' ' + C.fmtDate(rg.to).slice(3, 6) + '</div>'; })() + Charts.spark(x.series, Charts.color(0, x.sec)) +
           '<div class="dsec-a"><button class="btn sm pri" data-quick="' + A.base(x.sec) + '">' + L('إدخال', 'Entry') + '</button><button class="btn sm" data-rep="' + A.base(x.sec) + '">' + L('التقارير', 'Reports') + '</button><button class="btn sm ghost" data-dk="' + x.sec + '" title="' + L('التفاصيل', 'Details') + '">' + I.arrow + '</button></div></div>';
       }).join('') + '</div>');
     };
-    W.alerts = function (w) { return card(w, '<div class="alerts">' + (alerts.length ? alerts.slice(0, 14).map(function (a) { return '<div class="a"><span class="dot ' + a.level + '"></span><div><span class="pill">' + esc(UX.secLabel(a.sec)) + '</span> ' + esc(L(a.text, a.en)) + '</div></div>'; }).join('') : '<div class="empty">' + L('لا توجد تنبيهات ✓', 'No alerts ✓') + '</div>') + '</div>', { tag: '<button class="lnk" data-gocc>' + L('مركز التحكم', 'Control Center') + '</button>' }); };
+    // alerts grouped by section: a count per section and its two most important points; the full list is in the Control Center
+    W.alerts = function (w) {
+      if (!alerts.length) return card(w, '<div class="empty">' + L('لا توجد تنبيهات ✓', 'No alerts ✓') + '</div>', { tag: '<button class="lnk" data-gocc>' + L('مركز التحكم', 'Control Center') + '</button>' });
+      var rank = { high: 0, mid: 1, low: 2 }, by = {}, order = [];
+      alerts.forEach(function (a) { if (!by[a.sec]) { by[a.sec] = []; order.push(a.sec); } by[a.sec].push(a); });
+      order.sort(function (x, y) { return by[y].length - by[x].length; });
+      return card(w, '<div class="al-g">' + order.map(function (sc) {
+        var list = by[sc].slice().sort(function (x, y) { return (rank[x.level] || 1) - (rank[y.level] || 1); });
+        return '<div class="al-s" style="--c:' + Charts.color(0, sc) + '"><div class="al-h"><b>' + esc(UX.secLabel(sc)) + '</b><span class="al-n">' + list.length + '</span></div>' +
+          list.slice(0, 2).map(function (a) { return '<div class="al-i"><span class="dot ' + a.level + '"></span><span>' + esc(L(a.text, a.en)) + '</span></div>'; }).join('') +
+          (list.length > 2 ? '<button type="button" class="lnk al-more" data-gocc>+' + (list.length - 2) + ' ' + L('أخرى', 'more') + '</button>' : '') + '</div>';
+      }).join('') + '</div>', { tag: '<button class="lnk" data-gocc>' + L('مركز التحكم', 'Control Center') + ' · ' + alerts.length + '</button>' });
+    };
 
     var LY = layout(), grid = '', topRows = '';
     LY.forEach(function (w) {
@@ -9166,6 +9201,7 @@ var Dash = (function () {
 
     /* ---------- events ---------- */
     var rr = function () { render(m, go); };
+    var dcy = $('[data-dcyc]', m); if (dcy) dcy.onclick = function () { go({ page: 'settings', tab: 'periods' }); };
     $$('[data-dg]', m).forEach(function (x) { x.onclick = function () { st.gran = x.dataset.dg; st.anchor = null; rr(); }; });
     $$('[data-dst]', m).forEach(function (x) { x.onclick = function () { var d = +x.dataset.dst; st.anchor.v = d === 0 ? A.defaultAnchor(ctx, gran) : A.shift(ctx, gran, anchor, d); rr(); }; });
     bindRange(m, 'd', function (v) { st.anchor.v = v; rr(); }, b, ctx);
