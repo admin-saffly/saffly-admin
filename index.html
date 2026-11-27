@@ -11126,10 +11126,10 @@ var Importer = (function () {
     return { rec: o, miss: miss };
   }
   function chunked(arr, n) { var out = []; for (var i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n)); return out; }
-  function run(z) {
+  function run(z, keepLog) {
     if (st.busy) return;
     var P = st.plan = makePlan(st.pack), X = P.X; // fresh plan against the latest data
-    st.busy = true; st.stop = false; st.log = []; render(z);
+    st.busy = true; st.stop = false; st.log = keepLog || []; render(z);
     var steps = 0, total = 0, fails = 0;
     P.tables.forEach(function (x) { total += Math.ceil(x.add.length / 80) + Math.ceil(x.fill.length / 80) + (x.conflicts.length ? 1 : 0); });
     var linked = P.files.filter(function (f) { return f.link; }), arch = st.inclArchive ? P.files.filter(function (f) { return !f.link; }) : [];
@@ -11144,7 +11144,17 @@ var Importer = (function () {
         });
       });
     });
-    if (P.merges.some(function (g) { return g.on; })) chain = chain.then(function () { X.reset(); U.rebuild(); });
+    if (P.merges.some(function (g) { return g.on; })) {
+      // merges first; then the pack is planned again against the merged data (copies of the same day are already resolved)
+      chain.then(function () {
+        U.rebuild(); st.busy = false; st.plan = null; run(z, st.log.slice());
+      }).catch(function (e) {
+        U.rebuild(); st.busy = false;
+        log(z, e && e.message === 'stop' ? L('تم الإيقاف — يمكنك الاستكمال في أي وقت.', 'Stopped — you can resume any time.') : U.errMsg(e), 'warn');
+        st.plan = null; render(z);
+      });
+      return;
+    }
     P.tables.forEach(function (x) {
       if (!x.canWrite) { if (x.add.length || x.fill.length) log(z, x.title + ': ' + L('ليست لديك صلاحية تعديل هذا الجدول — تم التخطي.', 'no write access — skipped.'), 'warn'); return; }
       chunked(x.add, 80).forEach(function (ch) {
